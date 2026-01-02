@@ -3,13 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>星向 (Star Rays)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 禁止移动端双击缩放和长按选中 */
         body {
-            touch-action: none;
             user-select: none;
             -webkit-user-select: none;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -140,6 +139,15 @@
 
         * {
             -webkit-tap-highlight-color: transparent;
+        }
+
+        #game-container,
+        #grid-viewport,
+        #game-grid,
+        .cell,
+        button,
+        a {
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -848,6 +856,38 @@
                 visualViewport.addEventListener('resize', layoutGridToFit);
                 visualViewport.addEventListener('scroll', layoutGridToFit);
             }
+
+            // 桌面：禁用 dblclick 放大（不影响滚轮缩放等）
+            document.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+
+            // 移动端：只禁用“双点放大”，不干扰双指缩放
+            let lastTapTime = 0;
+            let lastTapX = 0;
+            let lastTapY = 0;
+
+            document.addEventListener('touchend', (e) => {
+                // 多指操作（pinch）直接放行
+                if (e.touches && e.touches.length > 0) return;
+
+                const now = Date.now();
+                const touch = e.changedTouches && e.changedTouches[0];
+                if (!touch) return;
+
+                const dt = now - lastTapTime;
+                const dx = Math.abs(touch.clientX - lastTapX);
+                const dy = Math.abs(touch.clientY - lastTapY);
+
+                // 300ms 内、且两次点的位置很近 => 判定为双点
+                if (dt > 0 && dt < 300 && dx < 20 && dy < 20) {
+                    e.preventDefault(); // 只在这里阻止默认行为（双击缩放）
+                }
+
+                lastTapTime = now;
+                lastTapX = touch.clientX;
+                lastTapY = touch.clientY;
+            }, { passive: false });
         };
     </script>
 </body>

@@ -167,8 +167,7 @@
                 </div>
             </a>
 
-            <h1 id="status-text"
-                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xl font-bold text-teal-800 tracking-tight whitespace-nowrap pointer-events-none">
+            <h1 id="status-text" class="text-xl font-bold text-teal-800 tracking-tight">
                 星向
             </h1>
 
@@ -229,17 +228,33 @@
     </header>
 
     <!-- 游戏主区域 -->
-    <main class="flex-grow flex items-center justify-center p-2 sm:p-6 overflow-hidden relative">
-        <div id="game-container">
-            <div id="grid-viewport">
+    <main class="flex-grow flex items-center justify-center p-2 sm:p-6 overflow-hidden relative flex-col">
+        <div id="game-container" class="flex flex-col h-full justify-center">
+            <div id="grid-viewport" class="flex-none">
                 <div id="game-grid" class="shadow-xl rounded-sm overflow-hidden"></div>
+            </div>
+
+            <div class="mt-4 flex items-center gap-2 w-full max-w-[600px] mx-auto z-10 px-1">
+                <select id="save-select"
+                    class="flex-grow bg-white border-2 border-teal-100 text-teal-800 text-sm rounded-lg p-2 focus:outline-none focus:border-teal-300 transition font-mono">
+                    <option value="" disabled selected>-- 选择回溯点 --</option>
+                </select>
+
+                <button onclick="loadGame()"
+                    class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
+                    回溯
+                </button>
+
+                <button onclick="saveGame()"
+                    class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
+                    记录
+                </button>
             </div>
         </div>
 
-        <div
-            class="absolute bottom-4 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
-            <span class="hidden sm:inline">左键：填色/取消 | 右键：标记/取消</span>
-            <span class="inline sm:hidden">点击循环：填色 / 标记 / 清除</span>
+        <div class="mt-3 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
+            <span class="hidden sm:inline">左键：填色/取消 | 右键：标记空白/取消</span>
+            <span class="inline sm:hidden">点击：切换填色/空白/未知 | 拖动：标记空白/取消</span>
         </div>
     </main>
 
@@ -376,11 +391,27 @@
         const statusTextEl = document.getElementById('status-text');
         const settingsModal = document.getElementById('settings-modal');
         const tutorialModal = document.getElementById('tutorial-modal');
+        const saveSelectEl = document.getElementById('save-select');
+
+        let savedStates = [];
 
         // --- 核心流程 ---
 
         function restartGame() {
             stopTimer();
+
+            generateLevel();
+            // --- 重置回溯点 ---
+            savedStates = [];
+
+            const answerGrid = gameState.solutionGrid.map(isFill => isFill ? 1 : 0);
+
+            savedStates.push({
+                name: "显示答案",  // 下拉框显示的文字
+                grid: answerGrid,
+                isReveal: true    // 核心标记：这是一个特殊档
+            });
+
             gameState.isPlaying = true;
             gameState.currentFilled = 0;
             gameState.startTime = Date.now();
@@ -390,10 +421,111 @@
 
             updateBestDisplay();
 
-            generateLevel();
             renderGrid();
             updateUI();
+
+            // 先重置计时器显示为 00:00
+            timerEl.innerText = "00:00";
+            // 立即存入开局档
+            saveGame();
             startTimer();
+        }
+
+        // --- 回溯点与读取系统 ---
+
+        // 回溯点操作
+        function saveGame() {
+            if (!gameState.isPlaying) return;
+
+            const currentGridJson = JSON.stringify(gameState.playerGrid);
+            const currentTimeStr = timerEl.innerText;
+
+            // 检查是否有重复盘面
+            const existingIndex = savedStates.findIndex(s => JSON.stringify(s.grid) === currentGridJson);
+
+            if (existingIndex !== -1) {
+                // 如果盘面完全一样，删除旧的（为了把最新的这个加到列表末尾，或者更新它的时间名）
+                savedStates.splice(existingIndex, 1);
+            }
+
+            // 添加新回溯点
+            savedStates.push({
+                name: currentTimeStr,
+                grid: [...gameState.playerGrid] // 浅拷贝数组
+            });
+
+            updateSaveDropdown();
+
+            // 简单的视觉反馈（可选）
+            const btn = document.querySelector('button[onclick="saveGame()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "已存";
+            setTimeout(() => btn.innerText = originalText, 500);
+        }
+
+        // 读取操作
+        function loadGame() {
+            if (!gameState.isPlaying) return;
+
+            const selectedIndex = saveSelectEl.value;
+            if (selectedIndex === "" || !savedStates[selectedIndex]) return;
+
+            const record = savedStates[selectedIndex];
+
+            // --- 新增：特殊逻辑 - 显示答案 ---
+            if (record.isReveal) {
+                // 覆盖盘面
+                gameState.playerGrid = [...record.grid];
+
+                // 刷新视觉
+                updateAllCellsVisuals();
+
+                // 停止游戏流程
+                stopTimer();
+                gameState.isPlaying = false; // 锁定游戏
+
+                // 更新状态文字（灰色，表示放弃/结束）
+                statusTextEl.innerText = "已显示答案";
+                statusTextEl.className = "text-xl font-bold text-gray-500 tracking-tight";
+
+                countEl.innerText = "0";
+                countEl.classList.remove('text-red-600'); 
+                countEl.classList.add('text-teal-600');
+
+                // 直接返回，不执行 checkWin，因此不会触发胜利动画和记录
+                return;
+            }
+
+            // 覆盖当前盘面
+            gameState.playerGrid = [...record.grid];
+
+            // 重新计算已填色数量 (重要：防止计数器出错)
+            gameState.currentFilled = gameState.playerGrid.filter(state => state === 1).length;
+
+            // 刷新界面
+            updateAllCellsVisuals();
+            updateUI();
+            checkWin(); // 检查读取后是否直接获胜
+        }
+
+        // 更新下拉框 UI
+        function updateSaveDropdown() {
+            saveSelectEl.innerHTML = '<option value="" disabled selected>-- 选择回溯点 --</option>';
+
+            // 倒序遍历，让最新的在最上面
+            // 这里按照数组顺序添加，最新的在列表底部
+            savedStates.forEach((state, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                // 显示格式：序号. 时间 (例如: 1. 00:45)
+                option.innerText = `${index + 1}. ${state.name}`;
+                saveSelectEl.appendChild(option);
+            });
+
+            // 自动选中最新的一项
+            if (savedStates.length > 0) {
+                saveSelectEl.value = savedStates.length - 1;
+            }
         }
 
         function startTimer() {
@@ -635,14 +767,108 @@
         let pointerDownButton = 0; // 0: Left, 2: Right
         let pointerType = 'mouse'; // 默认为 mouse
 
+        // --- 移动端单指滑动标记（带双指缩放窗口期） ---
+        const DRAG_ARM_DELAY = 120;       // 给第二根手指的“窗口期”(ms)
+        const DRAG_MOVE_THRESHOLD = 8;    // 超过多少像素算“开始拖动”
+
+        let activeTouchIds = new Set();
+
+        let touchDrag = {
+            id: null,
+            armed: false,        // 窗口期结束后才会 armed
+            dragging: false,     // 是否已进入拖动批量标记
+            startX: 0,
+            startY: 0,
+            startTime: 0,
+            action: 3,           // 3=标记空白；也可以实现擦除 0
+            visited: new Set(),  // 走过的格子，避免重复处理
+            armTimer: null,
+            rafPending: false
+        };
+
+        function resetTouchDrag() {
+            if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
+            touchDrag.id = null;
+            touchDrag.armed = false;
+            touchDrag.dragging = false;
+            touchDrag.visited.clear();
+            touchDrag.armTimer = null;
+            touchDrag.rafPending = false;
+        }
+
+        function scheduleFullRefresh() {
+            if (touchDrag.rafPending) return;
+            touchDrag.rafPending = true;
+            requestAnimationFrame(() => {
+                touchDrag.rafPending = false;
+                updateAllCellsVisuals();
+                updateUI();
+                checkWin();
+            });
+        }
+
+        function applyDragMarkAtPoint(clientX, clientY) {
+            const el = document.elementFromPoint(clientX, clientY);
+            const cellEl = el && el.closest ? el.closest('.cell') : null;
+            if (!cellEl) return;
+
+            const idx = parseInt(cellEl.dataset.index, 10);
+            if (touchDrag.visited.has(idx)) return;
+            touchDrag.visited.add(idx);
+
+            const state = gameState.playerGrid[idx];
+
+            // 拖动只处理 0 <-> 3，避免误伤已填色(1)
+            if (state === 1) return;
+
+            const newState = touchDrag.action; // 3 或 0
+            if (newState === state) return;
+
+            gameState.playerGrid[idx] = newState;
+            // 这里不改 currentFilled，因为我们不动 state=1
+
+            scheduleFullRefresh();
+        }
+
         function handlePointerDown(e) {
             if (!gameState.isPlaying) return;
+
             pointerDownTarget = e.currentTarget;
             pointerDownButton = e.button;
             pointerType = e.pointerType || 'mouse';
+
+            // 仅移动端：准备进入“单指滑动标记”
+            if (pointerType === 'touch' || pointerType === 'pen') {
+                // 记录第一指
+                touchDrag.id = e.pointerId;
+                touchDrag.startX = e.clientX;
+                touchDrag.startY = e.clientY;
+                touchDrag.startTime = Date.now();
+                touchDrag.dragging = false;
+                touchDrag.armed = false;
+                touchDrag.visited.clear();
+
+                // 小增强：从 3 开始拖动 => 当作“擦除(0)”，否则“标记(3)”
+                const idx = parseInt(pointerDownTarget.dataset.index, 10);
+                touchDrag.action = (gameState.playerGrid[idx] === 3) ? 0 : 3;
+
+                if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
+                touchDrag.armTimer = setTimeout(() => {
+                    // 窗口期结束：如果仍只有一根手指，并且这根手指还在
+                    if (touchDrag.id === e.pointerId && activeTouchIds.size === 1) {
+                        touchDrag.armed = true;
+                    }
+                }, DRAG_ARM_DELAY);
+            }
         }
 
         function handleGlobalPointerUp(e) {
+            // 如果刚刚是拖动批量标记，不要当作一次“点击”
+            if (touchDrag.dragging && e.pointerId === touchDrag.id) {
+                pointerDownTarget = null;
+                return;
+            }
+
             if (!gameState.isPlaying || !pointerDownTarget) {
                 pointerDownTarget = null;
                 return;
@@ -658,17 +884,52 @@
             pointerDownTarget = null;
         }
 
+        function neighborhoodHasSatisfiedOrOverloaded(idx) {
+            const w = CONFIG.width;
+            const h = CONFIG.height;
+
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+
+                    const j = ny * w + nx;
+                    const target = gameState.targetValues[j];
+                    const cur = calculateConnection(j, gameState.playerGrid);
+
+                    // 蓝(=) 或 红(>) 都算
+                    if (cur >= target) return true;
+                }
+            }
+            return false;
+        }
+
         function handleCellInteraction(idx, button, type) {
             const state = gameState.playerGrid[idx];
             let newState = state;
 
             // 逻辑分支：触摸 vs 鼠标
             if (type === 'touch' || type === 'pen') {
-                // 移动端逻辑：循环切换 (未知 -> 填色 -> 空 -> 未知)
-                if (state === 0) newState = 1;
-                else if (state === 1) newState = 3;
-                else if (state === 3) newState = 0;
+                const state = gameState.playerGrid[idx];
+                const useSmartCycle = neighborhoodHasSatisfiedOrOverloaded(idx);
+
+                if (useSmartCycle) {
+                    // 智能循环：未知 → 空白 → 填色 → 未知
+                    if (state === 0) newState = 3;
+                    else if (state === 3) newState = 1;
+                    else if (state === 1) newState = 0;
+                } else {
+                    // 原逻辑：未知 → 填色 → 空白 → 未知
+                    if (state === 0) newState = 1;
+                    else if (state === 1) newState = 3;
+                    else if (state === 3) newState = 0;
+                }
             } else {
+
                 // 电脑端逻辑 (mouse)
                 if (button === 2) {
                     // 右键：标记空 <-> 未知
@@ -849,6 +1110,16 @@
             // 事件监听
             document.addEventListener('pointerup', handleGlobalPointerUp);
 
+            function endTouchPointer(e) {
+                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                    activeTouchIds.delete(e.pointerId);
+                }
+                // 如果结束的是当前拖动手指，清理状态
+                if (e.pointerId === touchDrag.id) {
+                    resetTouchDrag();
+                }
+            }
+
             ro = new ResizeObserver(() => layoutGridToFit());
             ro.observe(document.getElementById('grid-viewport'));
 
@@ -862,32 +1133,100 @@
                 e.preventDefault();
             }, { passive: false });
 
-            // 移动端：只禁用“双点放大”，不干扰双指缩放
+            // 移动端：只禁用“双点放大”，同时保证双点仍然等价于“点两次”
             let lastTapTime = 0;
             let lastTapX = 0;
             let lastTapY = 0;
 
-            document.addEventListener('touchend', (e) => {
-                // 多指操作（pinch）直接放行
-                if (e.touches && e.touches.length > 0) return;
+            // 移动端：用 touchmove 实现“单指滑动标记空白”，并给 pinch 留窗口期
+            function getTouchById(touchList, id) {
+                for (const t of touchList) if (t.identifier === id) return t;
+                return null;
+            }
 
-                const now = Date.now();
-                const touch = e.changedTouches && e.changedTouches[0];
-                if (!touch) return;
+            gridEl.addEventListener('touchstart', (e) => {
+                if (!gameState.isPlaying) return;
 
-                const dt = now - lastTapTime;
-                const dx = Math.abs(touch.clientX - lastTapX);
-                const dy = Math.abs(touch.clientY - lastTapY);
-
-                // 300ms 内、且两次点的位置很近 => 判定为双点
-                if (dt > 0 && dt < 300 && dx < 20 && dy < 20) {
-                    e.preventDefault(); // 只在这里阻止默认行为（双击缩放）
+                // 不是单指：直接放行（pinch/多指）
+                if (e.touches.length !== 1) {
+                    resetTouchDrag();
+                    return;
                 }
 
-                lastTapTime = now;
-                lastTapX = touch.clientX;
-                lastTapY = touch.clientY;
+                const t = e.touches[0];
+                touchDrag.id = t.identifier;
+                touchDrag.startX = t.clientX;
+                touchDrag.startY = t.clientY;
+                touchDrag.startTime = Date.now();
+                touchDrag.dragging = false;
+                touchDrag.armed = false;
+                touchDrag.visited.clear();
+
+                // 从 3 开始拖 => 擦除到 0；否则拖 => 标记到 3
+                const el = document.elementFromPoint(t.clientX, t.clientY);
+                const cellEl = el && el.closest ? el.closest('.cell') : null;
+                if (cellEl) {
+                    const idx = parseInt(cellEl.dataset.index, 10);
+                    touchDrag.action = (gameState.playerGrid[idx] === 3) ? 0 : 3;
+                } else {
+                    touchDrag.action = 3;
+                }
+
+                if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
+                touchDrag.armTimer = setTimeout(() => {
+                    // 窗口期结束时仍然是单指，才允许进入拖动
+                    if (touchDrag.id === t.identifier) touchDrag.armed = true;
+                }, DRAG_ARM_DELAY);
+
+            }, { passive: true });
+
+            gridEl.addEventListener('touchmove', (e) => {
+                if (!gameState.isPlaying) return;
+                if (touchDrag.id == null) return;
+
+                // 多指：放行 pinch，并取消本次拖动候选
+                if (e.touches.length !== 1) {
+                    resetTouchDrag();
+                    pointerDownTarget = null; // 避免 pinch 结束触发点按循环
+                    return;
+                }
+
+                const t = getTouchById(e.touches, touchDrag.id) || e.touches[0];
+
+                const dx = t.clientX - touchDrag.startX;
+                const dy = t.clientY - touchDrag.startY;
+                const dist2 = dx * dx + dy * dy;
+
+                // 没进入拖动前：必须 armed + 超过阈值
+                if (!touchDrag.dragging) {
+                    if (!touchDrag.armed) return;
+                    if (dist2 < DRAG_MOVE_THRESHOLD * DRAG_MOVE_THRESHOLD) return;
+
+                    touchDrag.dragging = true;
+
+                    // 一旦开始拖动：取消 pointer 的“点按”判定
+                    pointerDownTarget = null;
+
+                    // 起点也算（先标一下）
+                    applyDragMarkAtPoint(touchDrag.startX, touchDrag.startY);
+                }
+
+                // 拖动中：阻止页面滚动/橡皮筋（但仅单指拖动时）
+                e.preventDefault();
+
+                applyDragMarkAtPoint(t.clientX, t.clientY);
+
             }, { passive: false });
+
+            gridEl.addEventListener('touchend', (e) => {
+                // 所有手指抬起：结束
+                if (e.touches.length === 0) resetTouchDrag();
+            }, { passive: true });
+
+            gridEl.addEventListener('touchcancel', () => {
+                resetTouchDrag();
+            }, { passive: true });
+
         };
     </script>
 </body>

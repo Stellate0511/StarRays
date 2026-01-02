@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>星向 (Star Rays)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 禁止移动端双击缩放和长按选中 */
+        body {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0fdfa;
+            /* Teal-50 */
+
+            height: 100vh;
+            /* fallback */
+            height: 100dvh;
+        }
+
+        main {
+            min-height: 0;
+        }
+
+        #game-container {
+            width: min(92vw, 600px);
+            height: 100%;
+            margin: auto;
+        }
+
+        #grid-viewport {
+            width: 100%;
+            height: min(70vh, 100%);
+            height: min(70dvh, 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #game-grid {
+            box-sizing: border-box;
+            display: grid;
+            gap: 1px;
+            border: 2px solid #5eead4;
+            /* Teal-300 */
+            background-color: #99f6e4;
+            /* Teal-200 gap */
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 700;
+            font-size: clamp(14px, calc(var(--cell, 24px) * 0.6), 32px);
+            transition: background-color 0.1s, color 0.1s;
+            cursor: pointer;
+        }
+
+        /* 状态 0: 未知 (白色背景) */
+        .cell.unknown {
+            background-color: #ffffff;
+            color: #111827;
+            /* Gray-900 数字 */
+        }
+
+        .cell.unknown:hover {
+            background-color: #f8fafc;
+        }
+
+        /* 状态 1: 已填色 (浅青色背景) */
+        .cell.filled {
+            background-color: #ccfbf1;
+            /* Teal-100 */
+            color: #111827;
+        }
+
+        /* 状态 3: 标记为空 (灰色背景) */
+        .cell.marked-empty {
+            background-color: #e5e7eb;
+            /* Gray-200 */
+            color: #9ca3af;
+            /* Gray-400 数字淡化 */
+        }
+
+        /* 数字达标 (蓝色高亮) */
+        .cell.satisfied {
+            color: #2563eb !important;
+            /* Blue-600 */
+            font-weight: 900;
+            text-shadow: 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        /* 数字超标 (红色警示) */
+        .cell.overloaded {
+            color: #ef4444 !important;
+            /* Red-500 */
+            font-weight: 900;
+        }
+
+        /* 胜利时的动画 */
+        .cell.win-anim {
+            animation: winPulse 0.6s ease-in-out;
+            background-color: #34d399 !important;
+            /* Emerald-400 */
+            color: white !important;
+            border-radius: 4px;
+            transform: scale(0.95);
+        }
+
+        @keyframes winPulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(0.9);
+            }
+
+            100% {
+                transform: scale(0.95);
+            }
+        }
+
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(3px);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+
+<body class="h-[100dvh] w-screen flex flex-col overflow-hidden text-gray-800" oncontextmenu="return false;">
+
+    <!-- 顶部导航栏 -->
+    <header class="flex-none bg-white shadow-sm z-20 flex flex-col">
+
+        <div class="relative w-full max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+
+            <a id="profile-link" href="/" class="flex items-center gap-2 group z-10">
+                <img src="/avatar.jpg" alt="Avatar"
+                    class="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm group-hover:opacity-90 transition">
+                <div class="hidden sm:flex flex-col">
+                    <span class="text-sm font-bold text-gray-600 group-hover:text-teal-600 transition">回到主页</span>
+                </div>
+            </a>
+
+            <h1 id="status-text"
+                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xl font-bold text-teal-800 tracking-tight whitespace-nowrap pointer-events-none">
+                星向
+            </h1>
+
+            <div class="flex items-center gap-2 z-10">
+                <button onclick="restartGame()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    title="重新开始">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+
+                <button onclick="toggleTutorial()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    title="玩法教程">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
+
+                <button onclick="toggleSettings()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    title="设置">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="w-full bg-teal-50/50 border-t border-gray-100">
+            <div class="max-w-3xl mx-auto px-4 py-2 flex justify-center items-center gap-8 sm:gap-12 text-sm">
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Remaining</span>
+                    <span id="remain-count" class="text-lg font-bold text-teal-600 leading-none tabular-nums">0</span>
+                </div>
+
+                <div class="h-4 w-px bg-gray-300/50"></div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Time</span>
+                    <span id="timer-display"
+                        class="font-mono font-bold text-gray-700 leading-none tabular-nums">00:00</span>
+                </div>
+
+                <div class="h-4 w-px bg-gray-300/50"></div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Best</span>
+                    <span id="best-time-display"
+                        class="font-mono font-bold text-gray-400 leading-none tabular-nums">--:--</span>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- 游戏主区域 -->
+    <main class="flex-grow flex items-center justify-center p-2 sm:p-6 overflow-hidden relative">
+        <div id="game-container">
+            <div id="grid-viewport">
+                <div id="game-grid" class="shadow-xl rounded-sm overflow-hidden"></div>
+            </div>
+        </div>
+
+        <div
+            class="absolute bottom-4 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
+            <span class="hidden sm:inline">左键：填色/取消 | 右键：标记/取消</span>
+            <span class="inline sm:hidden">点击循环：填色 / 标记 / 清除</span>
+        </div>
+    </main>
+
+    <!-- 设置模态框 -->
+    <div id="settings-modal" class="fixed inset-0 modal-backdrop hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-900">游戏设置</h2>
+                <button onclick="toggleSettings()"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100">&times;</button>
+            </div>
+
+            <div class="space-y-6">
+                <!-- 宽度 -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-semibold text-gray-700">网格宽度</label>
+                        <span id="val-w" class="text-sm font-bold text-teal-600">5</span>
+                    </div>
+                    <input type="range" id="input-width" min="5" max="15" value="5"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                        oninput="document.getElementById('val-w').innerText = this.value">
+                </div>
+
+                <!-- 高度 -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-semibold text-gray-700">网格高度</label>
+                        <span id="val-h" class="text-sm font-bold text-teal-600">5</span>
+                    </div>
+                    <input type="range" id="input-height" min="5" max="15" value="5"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                        oninput="document.getElementById('val-h').innerText = this.value">
+                </div>
+
+                <!-- 密度 -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-semibold text-gray-700">填色密度</label>
+                        <span id="val-d" class="text-sm font-bold text-teal-600">20%</span>
+                    </div>
+                    <input type="range" id="input-density" min="10" max="80" value="20" step="5"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                        oninput="document.getElementById('val-d').innerText = this.value + '%'">
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <button onclick="applySettings()"
+                    class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                    应用并重新开始
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tutorial-modal" class="fixed inset-0 modal-backdrop hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100 relative animate-fade-in">
+
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    玩法说明
+                </h2>
+                <button onclick="toggleTutorial()"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition">&times;</button>
+            </div>
+
+            <div class="space-y-4 text-sm text-gray-600 leading-relaxed overflow-y-auto max-h-[60vh]">
+
+                <div class="bg-teal-50 p-3 rounded-lg border border-teal-100">
+                    <p class="font-bold text-teal-800 mb-1">核心目标</p>
+                    <p>根据格子上的数字提示，推理并还原隐藏的像素图案。</p>
+                </div>
+
+                <div>
+                    <p class="font-bold text-gray-800 mb-1">数字含义</p>
+                    <p>数字代表该格子周围（包含自身）<span class="font-bold text-teal-600">8个方向延伸</span>的连续填色格总数。</p>
+                </div>
+
+                <div>
+                    <p class="font-bold text-gray-800 mb-1">操作方式</p>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li><strong>电脑：</strong>左键填色，右键标记空白。</li>
+                        <li><strong>手机：</strong>点击格子循环切换状态。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button onclick="toggleTutorial()"
+                    class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                    明白啦
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 全局配置 ---
+        let CONFIG = {
+            width: 10,
+            height: 10,
+            fillDensity: 0.55
+        };
+
+        // --- 游戏状态 ---
+        let gameState = {
+            isPlaying: false,
+            solutionGrid: [], // true=填色格, false=非填色格 (答案)
+            targetValues: [], // 每个格子的目标数字 (基于答案计算)
+
+            // playerGrid 状态定义:
+            // 0: 未知 (Unknown)
+            // 1: 已填色 (Filled)
+            // 3: 标记为空 (Marked Empty)
+            playerGrid: [],
+
+            totalToFill: 0,
+            currentFilled: 0, // 玩家当前填了多少个
+
+            startTime: 0,
+            timerInterval: null
+        };
+
+        const DIRECTIONS = [
+            { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: -1, y: 1 },
+            { x: -1, y: 0 }, { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 }
+        ];
+
+        // --- DOM ---
+        const gridEl = document.getElementById('game-grid');
+        const countEl = document.getElementById('remain-count');
+        const timerEl = document.getElementById('timer-display');
+        const statusTextEl = document.getElementById('status-text');
+        const settingsModal = document.getElementById('settings-modal');
+        const tutorialModal = document.getElementById('tutorial-modal');
+
+        // --- 核心流程 ---
+
+        function restartGame() {
+            stopTimer();
+            gameState.isPlaying = true;
+            gameState.currentFilled = 0;
+            gameState.startTime = Date.now();
+
+            statusTextEl.innerText = "星向";
+            statusTextEl.className = "text-xl font-bold text-teal-800 tracking-tight";
+
+            updateBestDisplay();
+
+            generateLevel();
+            renderGrid();
+            updateUI();
+            startTimer();
+        }
+
+        function startTimer() {
+            timerEl.innerText = "00:00";
+            gameState.timerInterval = setInterval(() => {
+                const delta = Math.floor((Date.now() - gameState.startTime) / 1000);
+                timerEl.innerText = formatTime(delta);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+        }
+
+        // --- 记录系统 ---
+
+        // 1. 时间格式化工具 (秒 -> MM:SS)
+        function formatTime(totalSeconds) {
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // 2. 生成存储 Key (格式: sr_record_宽_高_密度)
+        function getRecordKey() {
+            // 密度存整数 (e.g. 0.55 -> 55) 以避免浮点精度问题
+            const d = Math.round(CONFIG.fillDensity * 100);
+            return `sr_rec_${CONFIG.width}_${CONFIG.height}_${d}`;
+        }
+
+        // 3. 读取并刷新 UI 显示
+        function updateBestDisplay() {
+            const key = getRecordKey();
+            const best = localStorage.getItem(key);
+            const el = document.getElementById('best-time-display');
+
+            if (best) {
+                el.innerText = formatTime(parseInt(best));
+                el.classList.remove('text-gray-400');
+                el.classList.add('text-amber-500'); // 有记录时显示金色/琥珀色
+            } else {
+                el.innerText = "--:--";
+                el.classList.add('text-gray-400');
+                el.classList.remove('text-amber-500');
+            }
+        }
+
+        // 4. 保存记录 (如果是新纪录则返回 true)
+        function trySaveRecord(seconds) {
+            const key = getRecordKey();
+            const currentBest = localStorage.getItem(key);
+
+            // 如果没有记录，或者新成绩更快 (时间更短)
+            if (!currentBest || seconds < parseInt(currentBest)) {
+                localStorage.setItem(key, seconds);
+                updateBestDisplay();
+                return true;
+            }
+            return false;
+        }
+
+        // 计算某个格子在指定网格状态下的数值
+        // 规则：数字为邻格朝8个方向延伸的连续填色格的总数（如果自己是填色格就+1）
+        function calculateConnection(idx, gridRef) {
+            const w = CONFIG.width;
+            const h = CONFIG.height;
+            const sx = idx % w;
+            const sy = Math.floor(idx / w);
+
+            // 统一判断 "是否填色"
+            // solutionGrid 是 boolean
+            // playerGrid: 1=Filled, 0/3=Empty
+            const checkFilled = (i) => {
+                const val = gridRef[i];
+                if (typeof val === 'boolean') return val;
+                return val === 1;
+            };
+
+            // 如果自己是填色格，初始为1，否则为0
+            let count = checkFilled(idx) ? 1 : 0;
+
+            for (let dir of DIRECTIONS) {
+                let tx = sx + dir.x;
+                let ty = sy + dir.y;
+                while (tx >= 0 && tx < w && ty >= 0 && ty < h) {
+                    const tidx = ty * w + tx;
+
+                    if (checkFilled(tidx)) {
+                        count++;
+                        tx += dir.x;
+                        ty += dir.y;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function generateLevel() {
+            const w = CONFIG.width;
+            const h = CONFIG.height;
+            const size = w * h;
+
+            gameState.solutionGrid = new Array(size).fill(false);
+            gameState.playerGrid = new Array(size).fill(0);
+            gameState.targetValues = new Array(size).fill(0);
+
+            // 1. 生成随机答案
+            const K = Math.max(0, Math.min(size, Math.round(size * CONFIG.fillDensity)));
+            const idxs = Array.from({ length: size }, (_, i) => i);
+
+            // 洗牌
+            for (let i = size - 1; i > 0; i--) {
+                const j = (Math.random() * (i + 1)) | 0;
+                [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+            }
+
+            // 填入前K个
+            for (let i = 0; i < K; i++) {
+                gameState.solutionGrid[idxs[i]] = true;
+            }
+            gameState.totalToFill = K;
+
+            // 2. 基于答案计算所有格子的目标数字
+            for (let i = 0; i < size; i++) {
+                gameState.targetValues[i] = calculateConnection(i, gameState.solutionGrid);
+            }
+        }
+
+        // --- 布局逻辑 ---
+        let ro = null;
+
+        function layoutGridToFit() {
+            const viewport = document.getElementById('grid-viewport');
+            if (!viewport) return;
+
+            const cols = CONFIG.width;
+            const rows = CONFIG.height;
+            const vr = viewport.getBoundingClientRect();
+            const availW = vr.width;
+            const availH = vr.height;
+
+            const gs = getComputedStyle(gridEl);
+            const gap = parseFloat(gs.gap) || 0;
+            const border = parseFloat(gs.borderLeftWidth) || 0;
+
+            const cellW = (availW - 2 * border - (cols - 1) * gap) / cols;
+            const cellH = (availH - 2 * border - (rows - 1) * gap) / rows;
+            const cell = Math.max(1, Math.min(cellW, cellH));
+
+            gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+            gridEl.style.gridTemplateRows = `repeat(${rows}, ${cell}px)`;
+
+            const gridW = cols * cell + (cols - 1) * gap + 2 * border;
+            const gridH = rows * cell + (rows - 1) * gap + 2 * border;
+
+            gridEl.style.width = `${gridW}px`;
+            gridEl.style.height = `${gridH}px`;
+            gridEl.style.setProperty('--cell', `${cell}px`);
+        }
+
+        // --- 渲染 ---
+        function renderGrid() {
+            gridEl.innerHTML = '';
+            for (let i = 0; i < CONFIG.width * CONFIG.height; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell unknown';
+                cell.dataset.index = i;
+                cell.onpointerdown = handlePointerDown; // 记录按下
+                gridEl.appendChild(cell);
+                updateCellView(i);
+            }
+            requestAnimationFrame(layoutGridToFit);
+        }
+
+        function updateCellView(idx) {
+            const cell = gridEl.children[idx];
+            if (!cell) return;
+
+            const state = gameState.playerGrid[idx];
+            const target = gameState.targetValues[idx];
+
+            // 基础样式重置
+            cell.className = 'cell';
+
+            // 状态样式
+            if (state === 0) {
+                cell.classList.add('unknown');
+            } else if (state === 1) {
+                cell.classList.add('filled');
+            } else if (state === 3) {
+                cell.classList.add('marked-empty');
+            }
+
+            // 显示数字 (所有格子都显示)
+            cell.innerText = target;
+
+            // 检查数字状态 (蓝色高亮 or 红色警告)
+            const currentVal = calculateConnection(idx, gameState.playerGrid);
+
+            if (currentVal > target) {
+                cell.classList.add('overloaded'); // 红色
+            } else if (currentVal === target) {
+                cell.classList.add('satisfied'); // 蓝色
+            }
+
+            // 胜利后的特效
+            if (!gameState.isPlaying && state === 1) {
+                // 保持高亮或者加特效
+            }
+        }
+
+        function updateAllCellsVisuals() {
+            for (let i = 0; i < gameState.playerGrid.length; i++) {
+                updateCellView(i);
+            }
+        }
+
+        function updateUI() {
+            // 计算剩余数量（允许负数）
+            const remaining = gameState.totalToFill - gameState.currentFilled;
+
+            countEl.innerText = remaining;
+
+            // 逻辑：小于0时变红，否则恢复原本的青色
+            if (remaining < 0) {
+                countEl.classList.remove('text-teal-600');
+                countEl.classList.add('text-red-600'); // 红色警示
+            } else {
+                countEl.classList.remove('text-red-600');
+                countEl.classList.add('text-teal-600'); // 恢复原色
+            }
+        }
+
+        // --- 交互逻辑 ---
+
+        let pointerDownTarget = null;
+        let pointerDownButton = 0; // 0: Left, 2: Right
+        let pointerType = 'mouse'; // 默认为 mouse
+
+        function handlePointerDown(e) {
+            if (!gameState.isPlaying) return;
+            pointerDownTarget = e.currentTarget;
+            pointerDownButton = e.button;
+            pointerType = e.pointerType || 'mouse';
+        }
+
+        function handleGlobalPointerUp(e) {
+            if (!gameState.isPlaying || !pointerDownTarget) {
+                pointerDownTarget = null;
+                return;
+            }
+
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+
+            if (target === pointerDownTarget) {
+                const idx = parseInt(pointerDownTarget.dataset.index);
+                handleCellInteraction(idx, pointerDownButton, pointerType);
+            }
+
+            pointerDownTarget = null;
+        }
+
+        function handleCellInteraction(idx, button, type) {
+            const state = gameState.playerGrid[idx];
+            let newState = state;
+
+            // 逻辑分支：触摸 vs 鼠标
+            if (type === 'touch' || type === 'pen') {
+                // 移动端逻辑：循环切换 (未知 -> 填色 -> 空 -> 未知)
+                if (state === 0) newState = 1;
+                else if (state === 1) newState = 3;
+                else if (state === 3) newState = 0;
+            } else {
+                // 电脑端逻辑 (mouse)
+                if (button === 2) {
+                    // 右键：标记空 <-> 未知
+                    if (state === 0) newState = 3;
+                    else newState = 0;
+                } else {
+                    // 左键：填色 <-> 未知
+                    if (state === 0) newState = 1;
+                    else newState = 0;
+                }
+            }
+
+            // 更新状态
+            if (newState !== state) {
+                gameState.playerGrid[idx] = newState;
+
+                // 维护计数
+                if (state === 1) gameState.currentFilled--;
+                if (newState === 1) gameState.currentFilled++;
+
+                updateAllCellsVisuals(); // 全局刷新
+                updateUI();
+                checkWin();
+            }
+        }
+
+        function checkWin() {
+            // 条件1: 剩余数量为0
+            if (gameState.totalToFill !== gameState.currentFilled) return;
+
+            // 条件2: 场上所有数字都达标
+            let allSatisfied = true;
+            for (let i = 0; i < gameState.playerGrid.length; i++) {
+                const current = calculateConnection(i, gameState.playerGrid);
+                const target = gameState.targetValues[i];
+                if (current !== target) {
+                    allSatisfied = false;
+                    break;
+                }
+            }
+
+            if (allSatisfied) {
+                stopTimer();
+                gameState.isPlaying = false;
+
+                const finalSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+                const isNewRecord = trySaveRecord(finalSeconds);
+
+                // 胜利特效
+                const cells = document.querySelectorAll('.cell.filled');
+                cells.forEach((c, i) => {
+                    setTimeout(() => c.classList.add('win-anim'), i * 5);
+                });
+
+                if (isNewRecord) {
+                    statusTextEl.innerText = "新纪录！";
+                    statusTextEl.className = "text-xl font-bold text-amber-500 tracking-tight";
+                } else {
+                    statusTextEl.innerText = "完美通关！";
+                    statusTextEl.className = "text-xl font-bold text-teal-600 tracking-tight";
+                }
+            }
+        }
+
+        // --- 辅助 UI ---
+        function toggleSettings() {
+            settingsModal.classList.toggle('hidden');
+        }
+
+        function applySettings() {
+            CONFIG.width = parseInt(document.getElementById('input-width').value);
+            CONFIG.height = parseInt(document.getElementById('input-height').value);
+            CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
+
+            toggleSettings();
+            restartGame();
+        }
+
+        // URL 参数管理 ---
+
+        // 将当前 Slider 的值同步到 URL
+        function updateUrlFromInputs(useReplace = false) {
+            const w = document.getElementById('input-width').value;
+            const h = document.getElementById('input-height').value;
+            const d = document.getElementById('input-density').value;
+
+            const url = new URL(window.location);
+            url.searchParams.set('w', w);
+            url.searchParams.set('h', h);
+            url.searchParams.set('d', d);
+
+            const state = { w, h, d };
+
+            if (useReplace) {
+                // 替换当前 URL (用于初始化默认值)
+                window.history.replaceState(state, '', url);
+            } else {
+                // 推入新历史 (用于用户修改设置)
+                window.history.pushState(state, '', url);
+            }
+        }
+
+        // 2. 从 URL 读取参数并更新到 Slider 输入框和显示文本
+        function loadInputsFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+
+            const w = params.get('w');
+            const h = params.get('h');
+            const d = params.get('d');
+
+            if (w) {
+                document.getElementById('input-width').value = w;
+                document.getElementById('val-w').innerText = w;
+            }
+            if (h) {
+                document.getElementById('input-height').value = h;
+                document.getElementById('val-h').innerText = h;
+            }
+            if (d) {
+                document.getElementById('input-density').value = d;
+                document.getElementById('val-d').innerText = d + '%';
+            }
+
+            // 只要有一个参数存在，就视为有参数
+            return !!(w || h || d);
+        }
+
+        function applySettings(updateHistory = true) {
+            if (updateHistory) {
+                updateUrlFromInputs();
+            }
+
+            // 从 DOM 读取值应用到全局配置
+            CONFIG.width = parseInt(document.getElementById('input-width').value);
+            CONFIG.height = parseInt(document.getElementById('input-height').value);
+            CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
+
+            // 如果模态框是打开的，关掉它
+            if (!settingsModal.classList.contains('hidden')) {
+                toggleSettings();
+            }
+
+            restartGame();
+        }
+
+        // --- 辅助 UI ---
+        function toggleTutorial() {
+            tutorialModal.classList.toggle('hidden');
+
+            // 互斥逻辑：如果打开教程时设置开着，就关掉设置
+            if (!tutorialModal.classList.contains('hidden') && !settingsModal.classList.contains('hidden')) {
+                toggleSettings();
+            }
+        }
+
+        // 4. 新增：监听浏览器前进/后退事件
+        window.onpopstate = function (event) {
+            // 当点击后退/前进时，重新从 URL 读取参数到 Input
+            loadInputsFromUrl();
+            // 应用设置，但传入 false 防止死循环（不再 pushState）
+            applySettings(false);
+        };
+
+        window.onload = function () {
+            // 1. 尝试从 URL 读取参数
+            const hasParams = loadInputsFromUrl();
+
+            // 2. 如果 URL 没有任何参数（首次进入），则把 Input 的默认值同步到 URL
+            // 使用 replaceState，这样用户点浏览器“后退”不会卡在这里
+            if (!hasParams) {
+                updateUrlFromInputs(true);
+            }
+
+            // 3. 应用设置并开始游戏
+            // 传入 false，因为 URL 刚才已经被我们处理过了（要么是读取的，要么是补全的），不需要再 pushState
+            applySettings(false);
+
+            // 事件监听
+            document.addEventListener('pointerup', handleGlobalPointerUp);
+
+            ro = new ResizeObserver(() => layoutGridToFit());
+            ro.observe(document.getElementById('grid-viewport'));
+
+            if (window.visualViewport) {
+                visualViewport.addEventListener('resize', layoutGridToFit);
+                visualViewport.addEventListener('scroll', layoutGridToFit);
+            }
+        };
+    </script>
+</body>
+
+</html>

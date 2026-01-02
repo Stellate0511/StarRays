@@ -234,21 +234,27 @@
                 <div id="game-grid" class="shadow-xl rounded-sm overflow-hidden"></div>
             </div>
 
-            <div class="mt-4 flex items-center gap-2 w-full max-w-[600px] mx-auto z-10 px-1">
-                <select id="save-select"
-                    class="flex-grow bg-white border-2 border-teal-100 text-teal-800 text-sm rounded-lg p-2 focus:outline-none focus:border-teal-300 transition font-mono">
-                    <option value="" disabled selected>-- 选择回溯点 --</option>
-                </select>
+            <div class="w-full max-w-[600px] mx-auto z-10 px-1 flex flex-col gap-2">
+                
+                <div class="flex justify-end w-full">
+                    <button id="mode-toggle-btn" onclick="toggleNumberDisplay()" class="bg-white hover:bg-blue-50 text-blue-600 border-2 border-blue-200 font-bold py-2 px-3 rounded-lg transition text-sm shadow-sm">
+                        显示总数
+                    </button>
+                </div>
 
-                <button onclick="loadGame()"
-                    class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
-                    回溯
-                </button>
-
-                <button onclick="saveGame()"
-                    class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
-                    记录
-                </button>
+                <div class="flex items-center gap-2 w-full">
+                    <select id="save-select" class="flex-grow bg-white border-2 border-teal-100 text-teal-800 text-sm rounded-lg p-2 focus:outline-none focus:border-teal-300 transition font-mono">
+                        <option value="" disabled selected>-- 选择回溯点 --</option>
+                    </select>
+                    
+                    <button onclick="loadGame()" class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
+                        回溯
+                    </button>
+                    
+                    <button onclick="saveGame()" class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
+                        记录
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -376,7 +382,9 @@
             currentFilled: 0, // 玩家当前填了多少个
 
             startTime: 0,
-            timerInterval: null
+            timerInterval: null,
+
+            showRemaining: false
         };
 
         const DIRECTIONS = [
@@ -392,6 +400,7 @@
         const settingsModal = document.getElementById('settings-modal');
         const tutorialModal = document.getElementById('tutorial-modal');
         const saveSelectEl = document.getElementById('save-select');
+        const modeBtnEl = document.getElementById('mode-toggle-btn');
 
         let savedStates = [];
 
@@ -412,6 +421,9 @@
                 isReveal: true    // 核心标记：这是一个特殊档
             });
 
+            gameState.showRemaining = false;
+            modeBtnEl.innerText = "显示总数";
+
             gameState.isPlaying = true;
             gameState.currentFilled = 0;
             gameState.startTime = Date.now();
@@ -429,6 +441,21 @@
             // 立即存入开局档
             saveGame();
             startTimer();
+        }
+
+        function toggleNumberDisplay() {
+            // 切换状态
+            gameState.showRemaining = !gameState.showRemaining;
+
+            // 更新按钮文字 (按钮文字 = 当前模式名称)
+            if (gameState.showRemaining) {
+                modeBtnEl.innerText = "显示剩余";
+            } else {
+                modeBtnEl.innerText = "显示总数";
+            }
+
+            // 刷新全盘显示
+            updateAllCellsVisuals(false);
         }
 
         // --- 回溯点与读取系统 ---
@@ -489,7 +516,7 @@
                 statusTextEl.className = "text-xl font-bold text-gray-500 tracking-tight";
 
                 countEl.innerText = "0";
-                countEl.classList.remove('text-red-600'); 
+                countEl.classList.remove('text-red-600');
                 countEl.classList.add('text-teal-600');
 
                 // 直接返回，不执行 checkWin，因此不会触发胜利动画和记录
@@ -702,46 +729,52 @@
             requestAnimationFrame(layoutGridToFit);
         }
 
-        function updateCellView(idx) {
+        function updateCellView(idx, recolor = true) {
             const cell = gridEl.children[idx];
             if (!cell) return;
 
             const state = gameState.playerGrid[idx];
             const target = gameState.targetValues[idx];
 
-            // 基础样式重置
-            cell.className = 'cell';
+            if (recolor) {
+                // 基础样式重置
+                cell.className = 'cell';
 
-            // 状态样式
-            if (state === 0) {
-                cell.classList.add('unknown');
-            } else if (state === 1) {
-                cell.classList.add('filled');
-            } else if (state === 3) {
-                cell.classList.add('marked-empty');
+                // 状态样式
+                if (state === 0) {
+                    cell.classList.add('unknown');
+                } else if (state === 1) {
+                    cell.classList.add('filled');
+                } else if (state === 3) {
+                    cell.classList.add('marked-empty');
+                }
             }
-
-            // 显示数字 (所有格子都显示)
-            cell.innerText = target;
 
             // 检查数字状态 (蓝色高亮 or 红色警告)
             const currentVal = calculateConnection(idx, gameState.playerGrid);
 
-            if (currentVal > target) {
-                cell.classList.add('overloaded'); // 红色
-            } else if (currentVal === target) {
-                cell.classList.add('satisfied'); // 蓝色
+            // 显示数字 (所有格子都显示)
+            if (gameState.showRemaining) {
+                // 显示剩余模式：目标 - 当前
+                const diff = target - currentVal;
+                cell.innerText = diff; // 允许负数
+            } else {
+                // 显示总数模式：显示原始目标
+                cell.innerText = target;
             }
 
-            // 胜利后的特效
-            if (!gameState.isPlaying && state === 1) {
-                // 保持高亮或者加特效
+            if (recolor) {
+                if (currentVal > target) {
+                    cell.classList.add('overloaded'); // 红色
+                } else if (currentVal === target) {
+                    cell.classList.add('satisfied'); // 蓝色
+                }
             }
         }
 
-        function updateAllCellsVisuals() {
+        function updateAllCellsVisuals(recolor = true) {
             for (let i = 0; i < gameState.playerGrid.length; i++) {
-                updateCellView(i);
+                updateCellView(i, recolor);
             }
         }
 

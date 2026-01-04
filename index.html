@@ -953,8 +953,7 @@
                 if (useSmartCycle) {
                     // 智能循环：未知 → 空白 → 填色 → 未知
                     if (state === 0) newState = 3;
-                    else if (state === 3) newState = 1;
-                    else if (state === 1) newState = 0;
+                    else newState = 0;
                 } else {
                     // 原逻辑：未知 → 填色 → 空白 → 未知
                     if (state === 0) newState = 1;
@@ -1265,3 +1264,4 @@
 </body>
 
 </html>
+

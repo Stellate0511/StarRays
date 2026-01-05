@@ -948,7 +948,7 @@
             // 逻辑分支：触摸 vs 鼠标
             if (type === 'touch' || type === 'pen') {
                 const state = gameState.playerGrid[idx];
-                const useSmartCycle = neighborhoodHasSatisfiedOrOverloaded(idx);
+                /*const useSmartCycle = neighborhoodHasSatisfiedOrOverloaded(idx);
 
                 if (useSmartCycle) {
                     // 已满，优先取消，其次标记
@@ -959,7 +959,11 @@
                     if (state === 0) newState = 1;
                     else if (state === 1) newState = 3;
                     else if (state === 3) newState = 0;
-                }
+                }*/
+
+                if (state === 0) newState = 1;
+                else if (state === 1) newState = 3;
+                else if (state === 3) newState = 0;
             } else {
 
                 // 电脑端逻辑 (mouse)
@@ -1264,5 +1268,6 @@
 </body>
 
 </html>
+
 
 

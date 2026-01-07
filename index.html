@@ -313,7 +313,7 @@
                         <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_density">填色密度</label>
                         <span id="val-d" class="text-sm font-bold text-teal-600">20%</span>
                     </div>
-                    <input type="range" id="input-density" min="10" max="80" value="20" step="5"
+                    <input type="range" id="input-density" min="10" max="90" value="20" step="10"
                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                         oninput="document.getElementById('val-d').innerText = this.value + '%'">
                 </div>
@@ -446,8 +446,23 @@
             }
         };
 
-        // 默认语言
-        let currentLang = 'zh-CN';
+        // --- 语言初始化逻辑 ---
+        
+        // 1. 优先尝试读取本地存储
+        let currentLang = localStorage.getItem('sr_lang');
+
+        // 2. 如果没有存储，检测系统语言
+        if (!currentLang) {
+            const sysLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+            // 如果系统语言以 en 开头 (en-US, en-GB等)，优先显示英文，否则默认中文
+            currentLang = sysLang.startsWith('en') ? 'en-US' : 'zh-CN';
+        }
+
+        // 3. 安全校验：确保该语言在配置表中存在，否则回退到 zh-CN
+        if (!I18N[currentLang]) currentLang = 'zh-CN';
+
+        // 立即设置 html 标签的 lang 属性
+        document.documentElement.lang = currentLang;
 
         // 获取翻译助手函数
         function t(key) {
@@ -457,6 +472,7 @@
         // 切换语言
         function toggleLanguage() {
             currentLang = currentLang === 'zh-CN' ? 'en-US' : 'zh-CN';
+            localStorage.setItem('sr_lang', currentLang); // 保存到 localStorage
             document.documentElement.lang = currentLang;
             updateLanguageUI();
         }

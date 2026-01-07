@@ -163,7 +163,7 @@
                 <img src="/avatar.jpg" alt="Avatar"
                     class="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm group-hover:opacity-90 transition">
                 <div class="hidden sm:flex flex-col">
-                    <span class="text-sm font-bold text-gray-600 group-hover:text-teal-600 transition">回到主页</span>
+                    <span data-i18n="back_home" class="text-sm font-bold text-gray-600 group-hover:text-teal-600 transition">回到主页</span>
                 </div>
             </a>
 
@@ -172,8 +172,19 @@
             </h1>
 
             <div class="flex items-center gap-2 z-10">
+                <!-- 语言切换按钮 -->
+                <button onclick="toggleLanguage()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    data-i18n-title="language" title="语言">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                </button>
+
                 <button onclick="restartGame()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
-                    title="重新开始">
+                    data-i18n-title="restart" title="重新开始">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -182,7 +193,7 @@
                 </button>
 
                 <button onclick="toggleTutorial()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
-                    title="玩法教程">
+                    data-i18n-title="tutorial" title="玩法教程">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
@@ -192,7 +203,7 @@
                 </button>
 
                 <button onclick="toggleSettings()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
-                    title="设置">
+                    data-i18n-title="settings" title="设置">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path
@@ -207,18 +218,18 @@
             <div class="max-w-3xl mx-auto px-4 py-2 flex justify-center items-center gap-8 sm:gap-12 text-sm">
 
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Remaining</span>
+                    <span data-i18n="label_remaining" class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">剩余</span>
                     <span id="remain-count" class="text-lg font-bold text-teal-600 leading-none tabular-nums">0</span>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Time</span>
+                    <span data-i18n="label_time" class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">时间</span>
                     <span id="timer-display"
                         class="font-mono font-bold text-gray-700 leading-none tabular-nums">00:00</span>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Best</span>
+                    <span data-i18n="label_best" class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">最佳</span>
                     <span id="best-time-display"
                         class="font-mono font-bold text-gray-400 leading-none tabular-nums">--:--</span>
                 </div>
@@ -244,23 +255,23 @@
 
                 <div class="flex items-center gap-2 w-full">
                     <select id="save-select" class="flex-grow bg-white border-2 border-teal-100 text-teal-800 text-sm rounded-lg p-2 focus:outline-none focus:border-teal-300 transition font-mono">
-                        <option value="" disabled selected>-- 选择回溯点 --</option>
+                        <option value="" disabled selected data-i18n="opt_default">-- 选择回溯点 --</option>
                     </select>
                     
                     <button onclick="loadGame()" class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
-                        回溯
+                        <span data-i18n="btn_undo">回溯</span>
                     </button>
                     
-                    <button onclick="saveGame()" class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
-                        记录
+                    <button id="btn-save" onclick="saveGame()" class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
+                        <span data-i18n="btn_record">记录</span>
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="mt-3 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
-            <span class="hidden sm:inline">左键：填色/取消 | 右键：标记空白/取消</span>
-            <span class="inline sm:hidden">点击：切换填色/空白/未知 | 拖动：标记空白/取消</span>
+            <span class="hidden sm:inline" data-i18n="footer_desktop">左键：填色/取消 | 右键：标记空白/取消</span>
+            <span class="inline sm:hidden" data-i18n="footer_mobile">点击：切换填色/空白/未知 | 拖动：标记空白/取消</span>
         </div>
     </main>
 
@@ -268,7 +279,7 @@
     <div id="settings-modal" class="fixed inset-0 modal-backdrop hidden flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-gray-900">游戏设置</h2>
+                <h2 class="text-xl font-bold text-gray-900" data-i18n="modal_settings_title">游戏设置</h2>
                 <button onclick="toggleSettings()"
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100">&times;</button>
             </div>
@@ -277,7 +288,7 @@
                 <!-- 宽度 -->
                 <div>
                     <div class="flex justify-between mb-2">
-                        <label class="text-sm font-semibold text-gray-700">网格宽度</label>
+                        <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_width">网格宽度</label>
                         <span id="val-w" class="text-sm font-bold text-teal-600">5</span>
                     </div>
                     <input type="range" id="input-width" min="5" max="15" value="5"
@@ -288,7 +299,7 @@
                 <!-- 高度 -->
                 <div>
                     <div class="flex justify-between mb-2">
-                        <label class="text-sm font-semibold text-gray-700">网格高度</label>
+                        <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_height">网格高度</label>
                         <span id="val-h" class="text-sm font-bold text-teal-600">5</span>
                     </div>
                     <input type="range" id="input-height" min="5" max="15" value="5"
@@ -299,7 +310,7 @@
                 <!-- 密度 -->
                 <div>
                     <div class="flex justify-between mb-2">
-                        <label class="text-sm font-semibold text-gray-700">填色密度</label>
+                        <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_density">填色密度</label>
                         <span id="val-d" class="text-sm font-bold text-teal-600">20%</span>
                     </div>
                     <input type="range" id="input-density" min="10" max="80" value="20" step="5"
@@ -309,9 +320,8 @@
             </div>
 
             <div class="mt-8">
-                <button onclick="applySettings()"
-                    class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
-                    应用并重新开始
+                <button onclick="applySettings()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                    <span data-i18n="btn_apply">应用并重新开始</span>
                 </button>
             </div>
         </div>
@@ -321,7 +331,7 @@
         <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100 relative animate-fade-in">
 
             <div class="flex justify-between items-center mb-5">
-                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2" data-i18n="modal_tutorial_title">
                     玩法说明
                 </h2>
                 <button onclick="toggleTutorial()"
@@ -331,34 +341,189 @@
             <div class="space-y-4 text-sm text-gray-600 leading-relaxed overflow-y-auto max-h-[60vh]">
 
                 <div class="bg-teal-50 p-3 rounded-lg border border-teal-100">
-                    <p class="font-bold text-teal-800 mb-1">核心目标</p>
-                    <p>根据格子上的数字提示，推理并还原隐藏的像素图案。</p>
+                    <p class="font-bold text-teal-800 mb-1" data-i18n="tut_goal_title">核心目标</p>
+                    <p data-i18n="tut_goal_desc">根据格子上的数字提示，推理并还原隐藏的像素图案。</p>
                 </div>
 
                 <div>
-                    <p class="font-bold text-gray-800 mb-1">数字含义</p>
-                    <p>数字代表该格子周围（包含自身）<span class="font-bold text-teal-600">8个方向延伸</span>的连续填色格总数。</p>
+                    <p class="font-bold text-gray-800 mb-1" data-i18n="tut_num_title">数字含义</p>
+                    <p data-i18n="tut_num_desc">数字代表该格子周围（包含自身）<span class="font-bold text-teal-600">8个方向延伸</span>的连续填色格总数。</p>
                 </div>
 
                 <div>
-                    <p class="font-bold text-gray-800 mb-1">操作方式</p>
+                    <p class="font-bold text-gray-800 mb-1" data-i18n="tut_ctrl_title">操作方式</p>
                     <ul class="list-disc pl-5 space-y-1 text-xs">
-                        <li><strong>电脑：</strong>左键填色，右键标记空白。</li>
-                        <li><strong>手机：</strong>点击格子循环切换状态。</li>
+                        <li data-i18n="tut_ctrl_desc_pc"><strong>电脑：</strong>左键填色，右键标记空白。</li>
+                        <li data-i18n="tut_ctrl_desc_mobile"><strong>手机：</strong>点击格子循环切换状态。</li>
                     </ul>
                 </div>
             </div>
 
             <div class="mt-6">
-                <button onclick="toggleTutorial()"
-                    class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
-                    明白啦
+                <button onclick="toggleTutorial()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                    <span data-i18n="btn_got_it">明白啦</span>
                 </button>
             </div>
         </div>
     </div>
 
     <script>
+        // --- 国际化配置 (I18N) ---
+        const I18N = {
+            'zh-CN': {
+                app_title: "星向",
+                back_home: "回到主页",
+                restart: "重新开始",
+                tutorial: "玩法教程",
+                settings: "设置",
+                language: "语言",
+                label_remaining: "剩余",
+                label_time: "时间",
+                label_best: "最佳",
+                btn_show_total: "显示总数",
+                btn_show_remaining: "显示剩余",
+                btn_undo: "回溯",
+                btn_record: "记录",
+                btn_saved: "已存",
+                footer_desktop: "左键：填色/取消 | 右键：标记空白/取消",
+                footer_mobile: "点击：切换填色/空白/未知 | 拖动：标记空白/取消",
+                modal_settings_title: "游戏设置",
+                lbl_width: "网格宽度",
+                lbl_height: "网格高度",
+                lbl_density: "填色密度",
+                btn_apply: "应用并重新开始",
+                modal_tutorial_title: "玩法说明",
+                tut_goal_title: "核心目标",
+                tut_goal_desc: "根据格子上的数字提示，推理并还原隐藏的像素图案。",
+                tut_num_title: "数字含义",
+                tut_num_desc: "数字代表该格子周围（包含自身）<span class='font-bold text-teal-600'>8个方向延伸</span>的连续填色格总数。",
+                tut_ctrl_title: "操作方式",
+                tut_ctrl_desc_pc: "<strong>电脑：</strong>左键填色，右键标记空白。",
+                tut_ctrl_desc_mobile: "<strong>手机：</strong>点击格子循环切换状态。",
+                btn_got_it: "明白啦",
+                status_new_record: "新纪录！",
+                status_perfect: "完美通关！",
+                status_revealed: "已显示答案",
+                opt_default: "-- 选择回溯点 --",
+                opt_reveal: "显示答案"
+            },
+            'en-US': {
+                app_title: "Star Rays",
+                back_home: "Back Home",
+                restart: "Restart",
+                tutorial: "How to Play",
+                settings: "Settings",
+                language: "Language",
+                label_remaining: "Left",
+                label_time: "Time",
+                label_best: "Best",
+                btn_show_total: "Show Total",
+                btn_show_remaining: "Show Remaining",
+                btn_undo: "Load",
+                btn_record: "Save",
+                btn_saved: "Saved",
+                footer_desktop: "L-Click: Fill | R-Click: Mark Empty",
+                footer_mobile: "Tap: Toggle | Drag: Mark Empty",
+                modal_settings_title: "Game Settings",
+                lbl_width: "Grid Width",
+                lbl_height: "Grid Height",
+                lbl_density: "Density",
+                btn_apply: "Apply & Restart",
+                modal_tutorial_title: "How to Play",
+                tut_goal_title: "Goal",
+                tut_goal_desc: "Deduce and reveal the hidden pixel art based on numerical hints.",
+                tut_num_title: "Numbers",
+                tut_num_desc: "The number indicates the count of consecutive filled cells extending in <span class='font-bold text-teal-600'>8 directions</span> (including itself).",
+                tut_ctrl_title: "Controls",
+                tut_ctrl_desc_pc: "<strong>Desktop:</strong> Left click to fill, Right click to mark empty.",
+                tut_ctrl_desc_mobile: "<strong>Mobile:</strong> Tap cells to toggle states.",
+                btn_got_it: "Got it!",
+                status_new_record: "New Record!",
+                status_perfect: "Perfect Clear!",
+                status_revealed: "Answer Revealed",
+                opt_default: "-- Select Checkpoint --",
+                opt_reveal: "Reveal Answer"
+            }
+        };
+
+        // 默认语言
+        let currentLang = 'zh-CN';
+
+        // 获取翻译助手函数
+        function t(key) {
+            return I18N[currentLang][key] || key;
+        }
+
+        // 切换语言
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh-CN' ? 'en-US' : 'zh-CN';
+            document.documentElement.lang = currentLang;
+            updateLanguageUI();
+        }
+
+        // 更新界面所有文本
+        function updateLanguageUI() {
+            // 1. 更新带有 data-i18n 的元素
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (I18N[currentLang][key]) {
+                    el.innerHTML = I18N[currentLang][key];
+                }
+            });
+
+            // 2. 更新带有 data-i18n-title 的元素 (Tooltip)
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const key = el.getAttribute('data-i18n-title');
+                if (I18N[currentLang][key]) {
+                    el.setAttribute('title', I18N[currentLang][key]);
+                }
+            });
+
+            // 3. 更新动态文本 (需要逻辑判断的部分)
+            updateDynamicText();
+        }
+
+        // 处理动态文本的更新 (状态栏标题、模式按钮、下拉框等)
+        function updateDynamicText() {
+            // 更新标题/状态栏 (如果是特殊状态，保留特殊状态文字的翻译)
+            if (!gameState.isPlaying && gameState.currentFilled === gameState.totalToFill && gameState.totalToFill > 0) {
+                // 胜利状态 - 这里简单起见，重新检查一次状态或直接由 UI 逻辑驱动，
+                // 但为了简化，我们仅在非胜利/非特殊状态下重置为 App Title，
+                // 如果是胜利状态，我们在 checkWin 里会覆盖它。
+                // 稳妥起见，我们仅在普通状态下重置标题，或者当用户点击切换语言时，我们暂且重置为标题
+                // 除非有 flag 记录当前是胜利状态。
+                // 简单处理：直接设为标题，除非 checkWin 立即覆盖
+                statusTextEl.innerText = t('app_title'); 
+            } else if (!gameState.isPlaying && countEl.innerText === "0" && gameState.solutionGrid.length > 0) {
+                 // 可能是“显示答案”状态
+                 statusTextEl.innerText = statusTextEl.classList.contains('text-gray-500') ? t('status_revealed') : t('app_title');
+            } else {
+                statusTextEl.innerText = t('app_title');
+            }
+
+            // 更新模式按钮
+            if (gameState.showRemaining) {
+                modeBtnEl.innerText = t('btn_show_remaining');
+            } else {
+                modeBtnEl.innerText = t('btn_show_total');
+            }
+
+            // 更新下拉框中的选项
+            // 选项0 (Default)
+            const defaultOpt = saveSelectEl.querySelector('option[value=""]');
+            if (defaultOpt) defaultOpt.innerText = t('opt_default');
+
+            // 选项中如果有 "显示答案" (Reveal Answer)
+            Array.from(saveSelectEl.options).forEach(opt => {
+                if (opt.text.includes("显示答案") || opt.text.includes("Reveal Answer")) {
+                    // 保持前面的序号不变 (例如 "1. 显示答案")
+                    const prefix = opt.text.split('. ')[0]; 
+                    opt.innerText = `${prefix}. ${t('opt_reveal')}`;
+                }
+            });
+        }
+
+
         // --- 全局配置 ---
         let CONFIG = {
             width: 10,
@@ -416,25 +581,27 @@
             const answerGrid = gameState.solutionGrid.map(isFill => isFill ? 1 : 0);
 
             savedStates.push({
-                name: "显示答案",  // 下拉框显示的文字
+                name: "reveal", // 标记名，用于判断
                 grid: answerGrid,
                 isReveal: true    // 核心标记：这是一个特殊档
             });
 
             gameState.showRemaining = false;
-            modeBtnEl.innerText = "显示总数";
+            // 按钮文字根据语言设定
+            modeBtnEl.innerText = t('btn_show_total');
 
             gameState.isPlaying = true;
             gameState.currentFilled = 0;
             gameState.startTime = Date.now();
 
-            statusTextEl.innerText = "星向";
+            statusTextEl.innerText = t('app_title');
             statusTextEl.className = "text-xl font-bold text-teal-800 tracking-tight";
 
             updateBestDisplay();
 
             renderGrid();
             updateUI();
+            updateSaveDropdown(); // 确保下拉框重置并翻译
 
             // 先重置计时器显示为 00:00
             timerEl.innerText = "00:00";
@@ -449,9 +616,9 @@
 
             // 更新按钮文字 (按钮文字 = 当前模式名称)
             if (gameState.showRemaining) {
-                modeBtnEl.innerText = "显示剩余";
+                modeBtnEl.innerText = t('btn_show_remaining');
             } else {
-                modeBtnEl.innerText = "显示总数";
+                modeBtnEl.innerText = t('btn_show_total');
             }
 
             // 刷新全盘显示
@@ -484,10 +651,10 @@
             updateSaveDropdown();
 
             // 简单的视觉反馈（可选）
-            const btn = document.querySelector('button[onclick="saveGame()"]');
+            const btn = document.querySelector('#btn-save span'); // Target the span inside button
             const originalText = btn.innerText;
-            btn.innerText = "已存";
-            setTimeout(() => btn.innerText = originalText, 500);
+            btn.innerText = t('btn_saved');
+            setTimeout(() => btn.innerText = t('btn_record'), 500); // Reset to translated "Save"
         }
 
         // 读取操作
@@ -512,7 +679,7 @@
                 gameState.isPlaying = false; // 锁定游戏
 
                 // 更新状态文字（灰色，表示放弃/结束）
-                statusTextEl.innerText = "已显示答案";
+                statusTextEl.innerText = t('status_revealed');
                 statusTextEl.className = "text-xl font-bold text-gray-500 tracking-tight";
 
                 countEl.innerText = "0";
@@ -537,15 +704,16 @@
 
         // 更新下拉框 UI
         function updateSaveDropdown() {
-            saveSelectEl.innerHTML = '<option value="" disabled selected>-- 选择回溯点 --</option>';
+            saveSelectEl.innerHTML = `<option value="" disabled selected>${t('opt_default')}</option>`;
 
-            // 倒序遍历，让最新的在最上面
-            // 这里按照数组顺序添加，最新的在列表底部
+            // 倒序遍历，让最新的在最上面 (这里列表逻辑按照原版：最新在底部? 原版是按 push 顺序，HTML默认渲染是自上而下)
+            // 原版 savedStates.forEach 是按顺序 appendChild，所以最新的在最下面。
             savedStates.forEach((state, index) => {
                 const option = document.createElement('option');
                 option.value = index;
-                // 显示格式：序号. 时间 (例如: 1. 00:45)
-                option.innerText = `${index + 1}. ${state.name}`;
+                // 显示格式：序号. 时间 (例如: 1. 00:45) 或 1. 显示答案
+                const displayName = state.isReveal ? t('opt_reveal') : state.name;
+                option.innerText = `${index + 1}. ${displayName}`;
                 saveSelectEl.appendChild(option);
             });
 
@@ -948,19 +1116,7 @@
             // 逻辑分支：触摸 vs 鼠标
             if (type === 'touch' || type === 'pen') {
                 const state = gameState.playerGrid[idx];
-                /*const useSmartCycle = neighborhoodHasSatisfiedOrOverloaded(idx);
-
-                if (useSmartCycle) {
-                    // 已满，优先取消，其次标记
-                    if (state === 3) newState = 0;
-                    else newState = 3;
-                } else {
-                    // 原逻辑：未知 → 填色 → 空白 → 未知
-                    if (state === 0) newState = 1;
-                    else if (state === 1) newState = 3;
-                    else if (state === 3) newState = 0;
-                }*/
-
+                
                 if (state === 0) newState = 1;
                 else if (state === 1) newState = 3;
                 else if (state === 3) newState = 0;
@@ -1021,10 +1177,10 @@
                 });
 
                 if (isNewRecord) {
-                    statusTextEl.innerText = "新纪录！";
+                    statusTextEl.innerText = t('status_new_record');
                     statusTextEl.className = "text-xl font-bold text-amber-500 tracking-tight";
                 } else {
-                    statusTextEl.innerText = "完美通关！";
+                    statusTextEl.innerText = t('status_perfect');
                     statusTextEl.className = "text-xl font-bold text-teal-600 tracking-tight";
                 }
             }
@@ -1033,15 +1189,6 @@
         // --- 辅助 UI ---
         function toggleSettings() {
             settingsModal.classList.toggle('hidden');
-        }
-
-        function applySettings() {
-            CONFIG.width = parseInt(document.getElementById('input-width').value);
-            CONFIG.height = parseInt(document.getElementById('input-height').value);
-            CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
-
-            toggleSettings();
-            restartGame();
         }
 
         // URL 参数管理 ---
@@ -1142,6 +1289,9 @@
             // 3. 应用设置并开始游戏
             // 传入 false，因为 URL 刚才已经被我们处理过了（要么是读取的，要么是补全的），不需要再 pushState
             applySettings(false);
+            
+            // 4. 初始化语言
+            updateLanguageUI();
 
             // 事件监听
             document.addEventListener('pointerup', handleGlobalPointerUp);
@@ -1268,6 +1418,3 @@
 </body>
 
 </html>
-
-
-

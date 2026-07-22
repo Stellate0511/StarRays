@@ -1087,6 +1087,67 @@
         let pointerDownButton = 0; // 0: Left, 2: Right
         let pointerType = 'mouse'; // 默认为 mouse
 
+        // --- 桌面端鼠标批量操作 ---
+        let mouseDrag = {
+            active: false,
+            pointerId: null,
+            button: 0,
+            sourceState: 0,
+            targetState: 0,
+            visited: new Set()
+        };
+
+        function resetMouseDrag() {
+            mouseDrag.active = false;
+            mouseDrag.pointerId = null;
+            mouseDrag.visited.clear();
+        }
+
+        function applyMouseDragToCell(cellEl) {
+            if (!mouseDrag.active || !gameState.isPlaying || !cellEl) return;
+
+            const idx = parseInt(cellEl.dataset.index, 10);
+            if (mouseDrag.visited.has(idx)) return;
+            mouseDrag.visited.add(idx);
+
+            const state = gameState.playerGrid[idx];
+
+            // 本次按下只处理与起始格原状态相同的格子。
+            if (state !== mouseDrag.sourceState) return;
+
+            const newState = mouseDrag.targetState;
+            if (newState === state) return;
+
+            gameState.playerGrid[idx] = newState;
+
+            if (state === 1) gameState.currentFilled--;
+            if (newState === 1) gameState.currentFilled++;
+
+            updateAllCellsVisuals();
+            updateUI();
+            checkWin();
+        }
+
+        function applyMouseDragAtPoint(clientX, clientY) {
+            const el = document.elementFromPoint(clientX, clientY);
+            const cellEl = el && el.closest ? el.closest('.cell') : null;
+            if (!cellEl || !gridEl.contains(cellEl)) return;
+            applyMouseDragToCell(cellEl);
+        }
+
+        function handleGlobalPointerMove(e) {
+            if (!mouseDrag.active || e.pointerId !== mouseDrag.pointerId) return;
+
+            const requiredButtonMask = mouseDrag.button === 2 ? 2 : 1;
+            if ((e.buttons & requiredButtonMask) === 0) {
+                resetMouseDrag();
+                pointerDownTarget = null;
+                return;
+            }
+
+            applyMouseDragAtPoint(e.clientX, e.clientY);
+        }
+
         // --- 移动端单指滑动标记（带双指缩放窗口期） ---
         const DRAG_ARM_DELAY = 120;       // 给第二根手指的“窗口期”(ms)
         const DRAG_MOVE_THRESHOLD = 8;    // 超过多少像素算“开始拖动”
@@ -1157,6 +1218,28 @@
             pointerDownButton = e.button;
             pointerType = e.pointerType || 'mouse';
 
+            // 桌面端：按下时锁定起始状态，并在拖动过程中只处理同状态格子。
+            if (pointerType === 'mouse' && (e.button === 0 || e.button === 2)) {
+                const idx = parseInt(pointerDownTarget.dataset.index, 10);
+                const sourceState = gameState.playerGrid[idx];
+
+                mouseDrag.active = true;
+                mouseDrag.pointerId = e.pointerId;
+                mouseDrag.button = e.button;
+                mouseDrag.sourceState = sourceState;
+                mouseDrag.visited.clear();
+
+                if (sourceState === 0) {
+                    mouseDrag.targetState = e.button === 2 ? 3 : 1;
+                } else {
+                    // 无论左右键，从填色或空白开始都执行取消。
+                    mouseDrag.targetState = 0;
+                }
+
+                applyMouseDragToCell(pointerDownTarget);
+                return;
+            }
+
             // 仅移动端：准备进入“单指滑动标记”
             if (pointerType === 'touch' || pointerType === 'pen') {
                 // 记录第一指
@@ -1183,6 +1266,13 @@
         }
 
         function handleGlobalPointerUp(e) {
+            // 鼠标在按下时已经处理起点，抬起时只结束本次批量操作。
+            if (mouseDrag.active && e.pointerId === mouseDrag.pointerId) {
+                resetMouseDrag();
+                pointerDownTarget = null;
+                return;
+            }
+
             // 如果刚刚是拖动批量标记，不要当作一次“点击”
             if (touchDrag.dragging && e.pointerId === touchDrag.id) {
                 pointerDownTarget = null;
@@ -1413,7 +1503,12 @@
             updateLanguageUI();
 
             // 事件监听
+            document.addEventListener('pointermove', handleGlobalPointerMove);
             document.addEventListener('pointerup', handleGlobalPointerUp);
+            document.addEventListener('pointercancel', (e) => {
+                if (e.pointerId === mouseDrag.pointerId) resetMouseDrag();
+                pointerDownTarget = null;
+            });
             document.addEventListener('keydown', handleKeyboardShortcut);
 
             function endTouchPointer(e) {

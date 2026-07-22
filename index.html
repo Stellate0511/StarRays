@@ -173,7 +173,7 @@
 
             <div class="flex items-center gap-2 z-10">
                 <!-- 语言切换按钮 -->
-                <button onclick="toggleLanguage()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                <button id="btn-language" onclick="toggleLanguage()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
                     data-i18n-title="language" title="语言">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -183,8 +183,8 @@
                     </svg>
                 </button>
 
-                <button onclick="restartGame()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
-                    data-i18n-title="restart" title="重新开始">
+                <button id="btn-restart" onclick="restartGame()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    data-i18n-title="restart" data-shortcut="r" aria-keyshortcuts="R" title="重新开始 (R)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -192,7 +192,7 @@
                     </svg>
                 </button>
 
-                <button onclick="toggleTutorial()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                <button id="btn-tutorial" onclick="toggleTutorial()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
                     data-i18n-title="tutorial" title="玩法教程">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -202,8 +202,8 @@
                     </svg>
                 </button>
 
-                <button onclick="toggleSettings()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
-                    data-i18n-title="settings" title="设置">
+                <button id="btn-settings" onclick="toggleSettings()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                    data-i18n-title="settings" data-shortcut="s" aria-keyshortcuts="S" title="设置 (S)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path
@@ -248,7 +248,7 @@
             <div class="w-full max-w-[600px] mx-auto z-10 px-1 flex flex-col gap-2">
                 
                 <div class="flex justify-end w-full">
-                    <button id="mode-toggle-btn" onclick="toggleNumberDisplay()" class="bg-white hover:bg-blue-50 text-blue-600 border-2 border-blue-200 font-bold py-2 px-3 rounded-lg transition text-sm shadow-sm">
+                    <button id="mode-toggle-btn" onclick="toggleNumberDisplay()" data-i18n-title="shortcut_mode" data-shortcut="a" aria-keyshortcuts="A" title="切换数字显示 (A)" class="bg-white hover:bg-blue-50 text-blue-600 border-2 border-blue-200 font-bold py-2 px-3 rounded-lg transition text-sm shadow-sm">
                         显示总数
                     </button>
                 </div>
@@ -258,11 +258,11 @@
                         <option value="" disabled selected data-i18n="opt_default">-- 选择回溯点 --</option>
                     </select>
                     
-                    <button onclick="loadGame()" class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
+                    <button id="btn-load" onclick="loadGame()" data-i18n-title="shortcut_load" title="回溯" class="flex-none bg-teal-100 hover:bg-teal-200 text-teal-700 font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm border border-teal-200">
                         <span data-i18n="btn_undo">回溯</span>
                     </button>
                     
-                    <button id="btn-save" onclick="saveGame()" class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
+                    <button id="btn-save" onclick="saveGame()" data-i18n-title="shortcut_save" data-shortcut="d" aria-keyshortcuts="D" title="记录 (D)" class="flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm shadow-sm">
                         <span data-i18n="btn_record">记录</span>
                     </button>
                 </div>
@@ -280,7 +280,7 @@
         <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold text-gray-900" data-i18n="modal_settings_title">游戏设置</h2>
-                <button onclick="toggleSettings()"
+                <button id="btn-close-settings" onclick="toggleSettings()" data-i18n-title="shortcut_close" data-shortcut="escape" aria-keyshortcuts="Escape" title="关闭 (Esc)"
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100">&times;</button>
             </div>
 
@@ -320,7 +320,7 @@
             </div>
 
             <div class="mt-8">
-                <button onclick="applySettings()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                <button id="btn-apply-settings" onclick="applySettings()" data-i18n-title="shortcut_apply" data-shortcut="enter" aria-keyshortcuts="Enter" title="应用并重新开始 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
                     <span data-i18n="btn_apply">应用并重新开始</span>
                 </button>
             </div>
@@ -334,7 +334,7 @@
                 <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2" data-i18n="modal_tutorial_title">
                     玩法说明
                 </h2>
-                <button onclick="toggleTutorial()"
+                <button id="btn-close-tutorial" onclick="toggleTutorial()" data-i18n-title="shortcut_close" data-shortcut="escape" aria-keyshortcuts="Escape" title="关闭 (Esc)"
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition">&times;</button>
             </div>
 
@@ -360,7 +360,7 @@
             </div>
 
             <div class="mt-6">
-                <button onclick="toggleTutorial()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                <button id="btn-got-it" onclick="toggleTutorial()" data-i18n-title="shortcut_confirm" data-shortcut="enter" aria-keyshortcuts="Enter" title="明白啦 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
                     <span data-i18n="btn_got_it">明白啦</span>
                 </button>
             </div>
@@ -377,6 +377,12 @@
                 tutorial: "玩法教程",
                 settings: "设置",
                 language: "语言",
+                shortcut_mode: "切换数字显示",
+                shortcut_load: "回溯",
+                shortcut_save: "记录",
+                shortcut_close: "关闭",
+                shortcut_apply: "应用并重新开始",
+                shortcut_confirm: "明白啦",
                 label_remaining: "剩余",
                 label_time: "时间",
                 label_best: "最佳",
@@ -414,6 +420,12 @@
                 tutorial: "How to Play",
                 settings: "Settings",
                 language: "Language",
+                shortcut_mode: "Toggle Number Display",
+                shortcut_load: "Load Checkpoint",
+                shortcut_save: "Save Checkpoint",
+                shortcut_close: "Close",
+                shortcut_apply: "Apply & Restart",
+                shortcut_confirm: "Got it",
                 label_remaining: "Left",
                 label_time: "Time",
                 label_best: "Best",
@@ -491,7 +503,11 @@
             document.querySelectorAll('[data-i18n-title]').forEach(el => {
                 const key = el.getAttribute('data-i18n-title');
                 if (I18N[currentLang][key]) {
-                    el.setAttribute('title', I18N[currentLang][key]);
+                    const shortcut = el.getAttribute('data-shortcut');
+                    const shortcutLabel = shortcut ? formatShortcutLabel(shortcut) : '';
+                    el.setAttribute('title', shortcutLabel
+                        ? `${I18N[currentLang][key]} (${shortcutLabel})`
+                        : I18N[currentLang][key]);
                 }
             });
 
@@ -585,6 +601,80 @@
 
         let savedStates = [];
 
+        // --- 键盘快捷键（仅触发已有按钮，不改变游戏逻辑） ---
+        function formatShortcutLabel(shortcut) {
+            if (shortcut === 'escape') return 'Esc';
+            if (shortcut === 'enter') return 'Enter';
+            return shortcut.toUpperCase();
+        }
+
+        function isModalOpen(modal) {
+            return modal && !modal.classList.contains('hidden');
+        }
+
+        function shouldIgnoreShortcut(e) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return true;
+
+            const target = e.target;
+            if (!target) return false;
+
+            const tag = target.tagName;
+            return target.isContentEditable || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+        }
+
+        function clickShortcutButton(button) {
+            if (!button || button.disabled || button.offsetParent === null) return false;
+            button.click();
+            return true;
+        }
+
+        function handleKeyboardShortcut(e) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            // 使用物理键位而不是字符值，确保快捷键始终位于左手区域。
+            const keyCode = e.code;
+            const settingsOpen = isModalOpen(settingsModal);
+            const tutorialOpen = isModalOpen(tutorialModal);
+
+            // 弹窗打开时只响应确认、关闭，以及 S 再次关闭设置。
+            if (settingsOpen) {
+                if (keyCode === 'Escape' || keyCode === 'KeyS') {
+                    e.preventDefault();
+                    clickShortcutButton(document.getElementById('btn-close-settings'));
+                } else if (keyCode === 'Enter') {
+                    e.preventDefault();
+                    clickShortcutButton(document.getElementById('btn-apply-settings'));
+                }
+                return;
+            }
+
+            if (tutorialOpen) {
+                if (keyCode === 'Escape') {
+                    e.preventDefault();
+                    clickShortcutButton(document.getElementById('btn-close-tutorial'));
+                } else if (keyCode === 'Enter') {
+                    e.preventDefault();
+                    clickShortcutButton(document.getElementById('btn-got-it'));
+                }
+                return;
+            }
+
+            if (shouldIgnoreShortcut(e)) return;
+
+            const shortcuts = {
+                KeyR: 'btn-restart',
+                KeyS: 'btn-settings',
+                KeyA: 'mode-toggle-btn',
+                KeyD: 'btn-save'
+            };
+
+            const buttonId = shortcuts[keyCode];
+            if (!buttonId) return;
+
+            e.preventDefault();
+            clickShortcutButton(document.getElementById(buttonId));
+        }
+
         // --- 核心流程 ---
 
         function restartGame() {
@@ -602,9 +692,10 @@
                 isReveal: true    // 核心标记：这是一个特殊档
             });
 
-            gameState.showRemaining = false;
-            // 按钮文字根据语言设定
-            modeBtnEl.innerText = t('btn_show_total');
+            // 保留重新开始前的数字显示模式，不重置 showRemaining。
+            modeBtnEl.innerText = gameState.showRemaining
+                ? t('btn_show_remaining')
+                : t('btn_show_total');
 
             gameState.isPlaying = true;
             gameState.currentFilled = 0;
@@ -1311,6 +1402,7 @@
 
             // 事件监听
             document.addEventListener('pointerup', handleGlobalPointerUp);
+            document.addEventListener('keydown', handleKeyboardShortcut);
 
             function endTouchPointer(e) {
                 if (e.pointerType === 'touch' || e.pointerType === 'pen') {

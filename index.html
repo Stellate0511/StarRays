@@ -442,16 +442,26 @@
             <div id="normal-settings-actions">
                 <div class="mt-6 pt-4 border-t border-teal-100">
                     <div class="relative">
-                        <button id="btn-open-editor" onclick="openCustomEditor()" class="w-full bg-white border-2 border-teal-200 hover:bg-teal-50 text-teal-800 font-bold rounded-lg py-3 pl-4 pr-12 transition" data-i18n="editor_entry">自定义图案</button>
+                        <button id="btn-open-editor" onclick="openCustomEditor()" class="w-full min-h-[52px] flex items-center justify-center text-center bg-white border-2 border-teal-200 hover:bg-teal-50 text-teal-800 font-bold rounded-lg px-4 py-3 transition" data-i18n="editor_entry">自定义图案</button>
                         <label class="absolute right-3 z-10 flex items-center justify-center cursor-pointer" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);" title="生成时使用自定义图案" data-i18n-title="editor_use_custom">
                             <input id="custom-pattern-toggle" type="checkbox" data-i18n-aria-label="editor_use_custom" aria-label="生成时使用自定义图案" onchange="setUseCustomPattern(this.checked)" />
                         </label>
                     </div>
                 </div>
                 <div class="mt-4">
-                    <button id="btn-apply-settings" onclick="applySettings()" data-i18n-title="shortcut_apply" data-shortcut="enter" aria-keyshortcuts="Enter" title="应用并重新开始 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                    <button id="btn-apply-settings" onclick="applySettings()" data-i18n-title="shortcut_apply" data-shortcut="enter" aria-keyshortcuts="Enter" title="应用并重新开始 (Enter)" class="w-full min-h-[52px] flex items-center justify-center text-center bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
                         <span data-i18n="btn_apply">应用并重新开始</span>
                     </button>
+                </div>
+                <div class="mt-4">
+                    <div class="relative">
+                        <button id="btn-generate-from-image" onclick="requestImageGeneration()" class="w-full min-h-[52px] flex items-center justify-center text-center bg-white border-2 border-teal-200 hover:bg-teal-50 text-teal-800 font-bold rounded-lg px-4 py-3 transition" data-i18n="btn_image_generate">从图片生成</button>
+                        <label class="absolute right-3 z-10 inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-teal-800" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);" data-i18n-title="image_invert" title="反色">
+                            <span data-i18n="image_invert">反色</span>
+                            <input id="image-invert-toggle" type="checkbox" class="accent-teal-600" data-i18n-aria-label="image_invert" aria-label="反色" />
+                        </label>
+                    </div>
+                    <input id="image-generate-file" type="file" accept="image/*" class="hidden" onchange="handleImageGenerationFile(event)" />
                 </div>
             </div>
         </div>
@@ -496,7 +506,7 @@
                 <p data-i18n="editor_help_clear">顶部重新开始按钮可清空画布，清空前会确认。</p>
             </div>
             <div class="mt-6">
-                <button id="btn-got-it" onclick="toggleTutorial()" data-i18n-title="shortcut_confirm" data-shortcut="enter" aria-keyshortcuts="Enter" title="明白啦 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                <button id="btn-got-it" onclick="toggleTutorial()" data-i18n-title="shortcut_confirm" data-shortcut="enter" aria-keyshortcuts="Enter" title="明白啦 (Enter)" class="w-full min-h-[52px] flex items-center justify-center text-center bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
                     <span data-i18n="btn_got_it">明白啦</span>
                 </button>
             </div>
@@ -572,6 +582,10 @@
                 lbl_density: "填色密度",
                 lbl_theme: "主题色",
                 btn_apply: "应用并重新开始",
+                btn_image_generate: "从图片生成",
+                image_invert: "反色",
+                image_invalid_title: "无法读取图片",
+                image_invalid_message: "请选择一张有效图片，再试一次。",
                 reset_board_view: "重置棋盘缩放",
                 board_canvas: "星向游戏棋盘",
                 editor_entry: "自定义图案",
@@ -667,6 +681,10 @@
                 lbl_density: "Density",
                 lbl_theme: "Theme Color",
                 btn_apply: "Apply & Restart",
+                btn_image_generate: "Generate from Image",
+                image_invert: "Invert",
+                image_invalid_title: "Cannot Read Image",
+                image_invalid_message: "Choose a valid image and try again.",
                 reset_board_view: "Reset Board View",
                 board_canvas: "Star Rays Board",
                 editor_entry: "Custom Pattern",
@@ -960,6 +978,7 @@
 
             showRemaining: loadNumberDisplayMode(),
             isCustom: false,
+            isImageGenerated: false,
             playableMask: null,
             revealedMask: null, // 1 = starting truth is visible and permanently locked
             hiddenNumberMask: null // 1 = this clue is hidden and excluded from win validation
@@ -1179,9 +1198,7 @@
 
         // --- 核心流程 ---
 
-        function restartGame() {
-            if (editorMode) { handleRestartClick(); return false; }
-            if (!generateLevel()) return false;
+        function startPreparedGame() {
             stopTimer();
             // --- 重置回溯点 ---
             savedStates = [];
@@ -1220,6 +1237,12 @@
             startTimer();
             checkWin(); // Fully revealed patterns can legitimately be complete on opening.
             return true;
+        }
+
+        function restartGame() {
+            if (editorMode) { handleRestartClick(); return false; }
+            if (!generateLevel()) return false;
+            return startPreparedGame();
         }
 
         function toggleNumberDisplay() {
@@ -1368,7 +1391,7 @@
         // 3. 读取并刷新 UI 显示
         function updateBestDisplay() {
             const key = getRecordKey();
-            const best = gameState.isCustom ? null : localStorage.getItem(key);
+            const best = (gameState.isCustom || gameState.isImageGenerated) ? null : localStorage.getItem(key);
             const el = document.getElementById('best-time-display');
 
             if (best) {
@@ -1384,7 +1407,7 @@
 
         // 4. 保存记录 (如果是新纪录则返回 true)
         function trySaveRecord(seconds) {
-            if (gameState.isCustom) return false;
+            if (gameState.isCustom || gameState.isImageGenerated) return false;
             const key = getRecordKey();
             const currentBest = localStorage.getItem(key);
 
@@ -1530,6 +1553,7 @@
                 gameState.revealedMask = revealed;
                 gameState.hiddenNumberMask = hiddenNumbers;
                 gameState.isCustom = true;
+                gameState.isImageGenerated = false;
                 gameState.solutionGrid = solution;
                 gameState.playerGrid = Array.from(revealed, (flag, i) =>
                     flag ? (solution[i] ? 1 : 3) : 0);
@@ -1554,6 +1578,95 @@
             }
             for (let i = 0; i < K; i++) solution[idxs[i]] = true;
             gameState.isCustom = false;
+            gameState.isImageGenerated = false;
+            gameState.playableMask = null;
+            gameState.revealedMask = null;
+            gameState.hiddenNumberMask = null;
+            gameState.solutionGrid = solution;
+            gameState.playerGrid = Array(size).fill(0);
+            gameState.totalToFill = K;
+            gameState.targetValues = Array.from(calculateAllConnections(solution));
+            return true;
+        }
+
+        function requestImageGeneration() {
+            const input = document.getElementById('image-generate-file');
+            if (!input) return;
+            input.value = '';
+            input.click();
+        }
+
+        function handleImageGenerationFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            updateUrlFromInputs();
+            const objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = function () {
+                try {
+                    if (generateLevelFromImage(img, document.getElementById('image-invert-toggle').checked)) {
+                        startPreparedGame();
+                        if (!settingsModal.classList.contains('hidden')) toggleSettings();
+                    }
+                } catch (err) {
+                    console.error('Image generation failed:', err);
+                    showAppDialog(t('image_invalid_title'), t('image_invalid_message'));
+                } finally {
+                    URL.revokeObjectURL(objectUrl);
+                    event.target.value = '';
+                }
+            };
+            img.onerror = function () {
+                URL.revokeObjectURL(objectUrl);
+                event.target.value = '';
+                showAppDialog(t('image_invalid_title'), t('image_invalid_message'));
+            };
+            img.src = objectUrl;
+        }
+
+        function generateLevelFromImage(img, invert) {
+            CONFIG.width = parseInt(document.getElementById('input-width').value);
+            CONFIG.height = parseInt(document.getElementById('input-height').value);
+            CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
+            const w = CONFIG.width, h = CONFIG.height;
+            const size = w * h;
+            const K = Math.max(0, Math.min(size, Math.round(size * CONFIG.fillDensity)));
+
+            const off = document.createElement('canvas');
+            off.width = w;
+            off.height = h;
+            const octx = off.getContext('2d', { willReadFrequently: true });
+            octx.clearRect(0, 0, w, h);
+            octx.imageSmoothingEnabled = true;
+            octx.drawImage(img, 0, 0, w, h);
+            const data = octx.getImageData(0, 0, w, h).data;
+            const brightness = new Array(size);
+            for (let i = 0; i < size; i++) {
+                const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], a = data[i * 4 + 3] / 255;
+                let lum = ((r * 299 + g * 587 + b * 114) / 1000) * a + 255 * (1 - a);
+                if (invert) lum = 255 - lum;
+                brightness[i] = lum;
+            }
+            const sorted = brightness.slice().sort((a, b) => b - a);
+            const solution = new Array(size).fill(false);
+            if (K > 0) {
+                const threshold = sorted[K - 1];
+                const above = [];
+                const equal = [];
+                for (let i = 0; i < size; i++) {
+                    if (brightness[i] > threshold) above.push(i);
+                    else if (brightness[i] === threshold) equal.push(i);
+                }
+                for (const i of above) solution[i] = true;
+                let need = K - above.length;
+                for (let i = equal.length - 1; i > 0; i--) {
+                    const j = (Math.random() * (i + 1)) | 0;
+                    [equal[i], equal[j]] = [equal[j], equal[i]];
+                }
+                for (let i = 0; i < need && i < equal.length; i++) solution[equal[i]] = true;
+            }
+            gameState.isCustom = false;
+            gameState.isImageGenerated = true;
             gameState.playableMask = null;
             gameState.revealedMask = null;
             gameState.hiddenNumberMask = null;
@@ -2014,12 +2127,8 @@
             if (!editorMode || isModalOpen(appDialogEl)) return;
             finishEditorStroke();
             saveEditorDocument();
-            // The dialog must be laid out *before* drawing thumbnails. If we
-            // draw while display:none, canvas.clientWidth is zero; a fallback
-            // bitmap is then stretched when the dialog becomes visible.
-            patternLibraryEl.classList.remove('hidden');
             renderPatternLibrary();
-            scheduleLibraryThumbnailRefresh();
+            patternLibraryEl.classList.remove('hidden');
         }
         function closePatternLibrary() {
             patternLibraryEl.classList.add('hidden');
@@ -2125,17 +2234,13 @@
             if (item.name !== newName) { item.name = newName; savePatternLibrary(); }
         }
         function renderLibraryThumbnail(canvas, item) {
-            // Match the drawing buffer to the *actual visible* CSS dimensions.
-            // Never paint a guessed size: the browser would stretch that bitmap
-            // when a hidden library is opened or when card widths change.
-            const rect = canvas.getBoundingClientRect();
-            const cw = rect.width, ch = rect.height;
-            if (cw <= 0 || ch <= 0) return;
+            const cw = Math.max(20, Math.round(canvas.clientWidth || 156));
+            const ch = Math.max(20, Math.round(canvas.clientHeight || 108));
             const dpr = Math.min(window.devicePixelRatio || 1, 3);
-            canvas.width = Math.max(1, Math.round(cw * dpr));
-            canvas.height = Math.max(1, Math.round(ch * dpr));
+            canvas.width = Math.round(cw * dpr);
+            canvas.height = Math.round(ch * dpr);
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(canvas.width / cw, 0, 0, canvas.height / ch, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = '#e5e5e5';
             ctx.fillRect(0,0,cw,ch);
             let minR=64,maxR=-1,minC=64,maxC=-1;
@@ -2158,33 +2263,6 @@
                 if (cell >= 4) drawEditorMarkSymbols(ctx, x, y, cell, item.cellMode[i]);
             }
         }
-        // Keep thumbnail backing buffers in step with responsive card widths
-        // without rebuilding cards (which would interrupt name editing).
-        let libraryThumbnailFrame = 0;
-        function scheduleLibraryThumbnailRefresh() {
-            if (libraryThumbnailFrame || !libraryIsOpen()) return;
-            libraryThumbnailFrame = requestAnimationFrame(() => {
-                libraryThumbnailFrame = 0;
-                if (!libraryIsOpen()) return;
-                for (const card of patternLibraryGrid.querySelectorAll('.pattern-card')) {
-                    const item = patternLibrary.entries.find(v => v.id === Number(card.dataset.patternId));
-                    const canvas = card.querySelector('canvas');
-                    if (item && canvas) {
-                        const r = canvas.getBoundingClientRect();
-                        const dpr = Math.min(window.devicePixelRatio || 1, 3);
-                        if (r.width > 0 && r.height > 0 &&
-                            (Math.abs(canvas.width - Math.round(r.width * dpr)) > 1 ||
-                             Math.abs(canvas.height - Math.round(r.height * dpr)) > 1)) {
-                            renderLibraryThumbnail(canvas, item);
-                        }
-                    }
-                }
-            });
-        }
-        const libraryThumbnailResizeObserver = new ResizeObserver(scheduleLibraryThumbnailRefresh);
-        libraryThumbnailResizeObserver.observe(patternLibraryGrid);
-        window.addEventListener('resize', scheduleLibraryThumbnailRefresh);
-
         function renderPatternLibrary(focusNameId = null) {
             if (selectedLibraryId !== null && !selectedLibraryPattern()) selectedLibraryId = null;
             const ids = new Set(patternLibrary.entries.map(v => v.id));
@@ -3095,7 +3173,7 @@
                 gameState.isPlaying = false;
 
                 const finalSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
-                const isNewRecord = gameState.isCustom ? false : trySaveRecord(finalSeconds);
+                const isNewRecord = (gameState.isCustom || gameState.isImageGenerated) ? false : trySaveRecord(finalSeconds);
 
                 // Original staggered emerald pulse and an independent,
                 // simultaneous smooth zoom/pan back to the fitted 100% view.

@@ -3,156 +3,240 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no, viewport-fit=cover">
     <title>星向 (Star Rays)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 禁止移动端双击缩放和长按选中 */
+        html {
+            width: 100%; height: 100%; overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+        }
         body {
-            user-select: none;
-            -webkit-user-select: none;
+            user-select: none; -webkit-user-select: none;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: #f0fdfa;
-            /* Teal-50 */
-
-            height: 100vh;
-            /* fallback */
-            height: 100dvh;
+            position: fixed; inset: 0;
+            width: 100%; max-width: 100%; min-width: 0;
+            height: 100vh; height: 100dvh;
+            overflow: hidden; overflow: clip;
+            overscroll-behavior: none;
         }
-
-        main {
-            min-height: 0;
+        /* Canvas covers the MAIN viewport, not the tiny fitted-board element.
+           This allows panning/zooming behind transparent controls without
+           enlarging the document's layout or its scrollable overflow. */
+        #game-main {
+            min-height: 0; min-width: 0;
+            display: flex; flex-direction: column;
+            justify-content: flex-start; align-items: stretch;
+            position: relative; overflow: hidden; isolation: isolate;
+            max-width: 100%;
         }
-
+        #board-canvas {
+            position: absolute; inset: 0; z-index: 0;
+            width: 100%; height: 100%; display: block;
+            touch-action: none; overscroll-behavior: none;
+            -webkit-user-select: none; user-select: none;
+        }
         #game-container {
             width: min(92vw, 600px);
-            height: 100%;
-            margin: auto;
+            flex: 1 1 0%; min-height: 0; min-width: 0;
+            height: auto; margin: 0 auto;
+            display: flex; flex-direction: column;
+            justify-content: flex-start;
+            position: relative; z-index: 1;
+            pointer-events: none;
         }
-
         #grid-viewport {
-            width: 100%;
-            height: min(70vh, 100%);
-            height: min(70dvh, 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            width: 100%; height: auto;
+            flex: 1 1 0%; min-height: 0; min-width: 0;
+            position: relative; pointer-events: none;
         }
-
-        #game-grid {
-            box-sizing: border-box;
-            display: grid;
-            gap: 1px;
-            border: 2px solid #5eead4;
-            /* Teal-300 */
-            background-color: #99f6e4;
-            /* Teal-200 gap */
+        #board-controls {
+            position: relative; z-index: 5;
+            flex: none; background: transparent;
+            border-radius: 0; padding-top: 4px; padding-bottom: 3px;
+            pointer-events: none;
         }
-
-        .cell {
-            width: 100%;
-            height: 100%;
-            min-width: 0;
-            min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: 700;
-            font-size: clamp(14px, calc(var(--cell, 24px) * 0.6), 32px);
-            transition: background-color 0.1s, color 0.1s;
-            cursor: pointer;
+        #board-controls button,
+        #board-controls select { pointer-events: auto; }
+        #game-footer {
+            position: relative; z-index: 5;
+            flex: none; background: transparent;
+            pointer-events: none;
         }
-
-        /* 状态 0: 未知 (白色背景) */
-        .cell.unknown {
-            background-color: #ffffff;
-            color: #111827;
-            /* Gray-900 数字 */
+        header { position: relative; z-index: 30; }
+        @media (orientation: landscape) and (max-height: 520px) {
+            header > div:first-child { padding-top: 3px !important; padding-bottom: 3px !important; }
+            header > div:nth-child(2) > div { padding-top: 2px !important; padding-bottom: 2px !important; }
+            #game-main { padding: 2px 6px !important; }
+            #game-footer { display: none; }
+            #board-controls { padding-top: 2px; padding-bottom: 2px; gap: 3px; }
+            #board-controls button, #board-controls select { padding-top: 4px !important; padding-bottom: 4px !important; }
         }
-
-        .cell.unknown:hover {
-            background-color: #f8fafc;
-        }
-
-        /* 状态 1: 已填色 (浅青色背景) */
-        .cell.filled {
-            background-color: #ccfbf1;
-            /* Teal-100 */
-            color: #111827;
-        }
-
-        /* 状态 3: 标记为空 (灰色背景) */
-        .cell.marked-empty {
-            background-color: #e5e7eb;
-            /* Gray-200 */
-            color: #9ca3af;
-            /* Gray-400 数字淡化 */
-        }
-
-        /* 数字达标 (蓝色高亮) */
-        .cell.satisfied {
-            color: #2563eb !important;
-            /* Blue-600 */
-            font-weight: 900;
-            text-shadow: 0 0 2px rgba(37, 99, 235, 0.1);
-        }
-
-        /* 数字超标 (红色警示) */
-        .cell.overloaded {
-            color: #ef4444 !important;
-            /* Red-500 */
-            font-weight: 900;
-        }
-
-        /* 胜利时的动画 */
-        .cell.win-anim {
-            animation: winPulse 0.6s ease-in-out;
-            background-color: #34d399 !important;
-            /* Emerald-400 */
-            color: white !important;
-            border-radius: 4px;
-            transform: scale(0.95);
-        }
-
-        @keyframes winPulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(0.9);
-            }
-
-            100% {
-                transform: scale(0.95);
-            }
-        }
-
         .modal-backdrop {
             background-color: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(3px);
         }
+        * { -webkit-tap-highlight-color: transparent; }
+        button, a { touch-action: manipulation; }
+        /* Editing is a separate screen, using exactly the same canvas and viewport. */
+        #settings-modal > div {
+            max-height: calc(100dvh - 24px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #editor-back-button, #editor-controls { display: none; }
+        body.editing #game-stats,
+        body.editing #board-controls,
+        body.editing #game-footer { display: none !important; }
+        body.editing #editor-controls { display: flex; }
+        #editor-tutorial-content { display: none; }
+        body.editing #game-tutorial-content { display: none; }
+        body.editing #editor-tutorial-content { display: block; }
+        #custom-pattern-toggle:focus-visible { outline: 3px solid var(--theme-600); outline-offset: 3px; }
+        #custom-pattern-toggle { width: 20px; height: 20px; accent-color: var(--theme-600); cursor: pointer; }
+        #app-dialog:not(.hidden) { display: flex; }
+        #editor-controls {
+            position: relative; z-index: 5; flex: none;
+            background: transparent; pointer-events: none;
+        }
+        #editor-controls button, #editor-controls input { pointer-events: auto; }
+        #editor-controls .editor-selected {
+            background: var(--theme-600) !important; border-color: var(--theme-600) !important;
+            color: white !important;
+        }
+        /* The original plain slider, moved above the toolbar without affecting layout. */
+        #editor-opacity-row {
+            display: none;
+            position: absolute;
+            left: 4px;
+            right: 4px;
+            bottom: calc(100% + 8px);
+            z-index: 6;
+            min-width: 0;
+            padding: 0 4px;
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            pointer-events: auto;
+        }
+        #editor-controls.editor-brush:not(.editor-mark-mode) #editor-opacity-row { display: flex; }
+        /* Mark-mode choices occupy the original floating slider's position.
+           Both remain visible when the eraser is selected. */
+        #editor-mark-options {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 4px;
+            right: 4px;
+            z-index: 6;
+            gap: 8px;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        #editor-controls.editor-mark-mode #editor-mark-options { display: flex; }
+        #editor-mark-options button { min-width: 0; }
+        @media (orientation: landscape) and (max-height: 520px) {
+            #editor-controls { gap: 3px !important; }
+            #editor-controls button { padding-top: 5px !important; padding-bottom: 5px !important; }
+        }
 
-        * {
+        /* Pattern library floats above the canvas; none of its contents enter layout. */
+        #pattern-library:not(.hidden) { display: flex; }
+        #pattern-library-panel { max-height: min(86dvh, 740px); }
+        #pattern-library-grid { scrollbar-width: thin; }
+        .pattern-card {
+            position: relative; min-width: 0; overflow: hidden;
+            background: white; border: 2px solid #e2e2e2; border-radius: 10px;
+            cursor: pointer; transition: border-color .12s, background .12s;
             -webkit-tap-highlight-color: transparent;
         }
-
-        #game-container,
-        #grid-viewport,
-        #game-grid,
-        .cell,
-        button,
-        a {
-            touch-action: manipulation;
+        .pattern-card.is-selected { border-color: var(--theme-600); }
+        .pattern-card.is-checked:not(.is-selected) { background: var(--theme-50); }
+        .pattern-card .pattern-checkbox { cursor: pointer; }
+        .pattern-card:focus-visible { outline: 2px solid var(--theme-600); outline-offset: 2px; }
+        .pattern-card canvas { display: block; width: 100%; height: 108px; background: #e5e5e5; }
+        .pattern-card .pattern-name {
+            display: block; width: 100%; border: none; outline: none; background: #fff;
+            color: #334155; text-align: center; font-size: 12px; font-weight: 600;
+            height: 34px; padding: 4px 7px; text-overflow: ellipsis;
+            user-select: text; -webkit-user-select: text;
         }
+        .pattern-card .pattern-name:focus { background: var(--theme-50); box-shadow: inset 0 -2px var(--theme-600); }
+        .pattern-card .pattern-checkbox {
+            position: absolute; right: 7px; top: 7px; width: 18px; height: 18px;
+            accent-color: var(--theme-600); pointer-events: auto;
+            filter: drop-shadow(0 1px 1px rgba(0,0,0,.22));
+        }
+        #pattern-library button:disabled { opacity: .35; cursor: default; }
+        #pattern-library input[type=file] { display: none; }
+        @media (max-height: 500px) {
+            #pattern-library-panel { max-height: 94dvh; padding: 12px !important; }
+            .pattern-card canvas { height: 72px; }
+        }
+
+        /* Hue-based theme. Tailwind's teal utilities are remapped without
+           rebuilding its stylesheet; all color choices share one source. */
+        :root {
+            --theme-50: #f0fdfa; --theme-100: #ccfbf1;
+            --theme-200: #99f6e4; --theme-300: #5eead4;
+            --theme-600: #0d9488; --theme-700: #0f766e;
+            --theme-800: #115e59;
+            --theme-50-half: rgba(240, 253, 250, 0.5);
+            --theme-700-faded: rgba(15, 118, 110, 0.6);
+            --contrast-50: #eff6ff; --contrast-200: #bfdbfe;
+            --contrast-600: #2563eb;
+        }
+        body { background-color: var(--theme-50) !important; }
+        [class~="bg-teal-50"] { background-color: var(--theme-50) !important; }
+        [class~="bg-teal-50/50"] { background-color: var(--theme-50-half) !important; }
+        [class~="bg-teal-100"] { background-color: var(--theme-100) !important; }
+        [class~="bg-teal-200"] { background-color: var(--theme-200) !important; }
+        [class~="bg-teal-600"] { background-color: var(--theme-600) !important; }
+        [class~="text-teal-600"] { color: var(--theme-600) !important; }
+        [class~="text-teal-700"] { color: var(--theme-700) !important; }
+        [class~="text-teal-700/60"] { color: var(--theme-700-faded) !important; }
+        [class~="text-teal-800"] { color: var(--theme-800) !important; }
+        [class~="border-teal-100"] { border-color: var(--theme-100) !important; }
+        [class~="border-teal-200"] { border-color: var(--theme-200) !important; }
+        [class~="accent-teal-600"] { accent-color: var(--theme-600) !important; }
+        [class~="hover:bg-teal-50"]:hover { background-color: var(--theme-50) !important; }
+        [class~="hover:bg-teal-200"]:hover { background-color: var(--theme-200) !important; }
+        [class~="hover:bg-teal-700"]:hover { background-color: var(--theme-700) !important; }
+        [class~="focus:border-teal-300"]:focus { border-color: var(--theme-300) !important; }
+        .group:hover [class~="group-hover:text-teal-600"] { color: var(--theme-600) !important; }
+        [class~="hover:bg-blue-50"]:hover { background-color: var(--contrast-50) !important; }
+        [class~="text-blue-600"] { color: var(--contrast-600) !important; }
+        [class~="border-blue-200"] { border-color: var(--contrast-200) !important; }
+        #theme-hue {
+            display: block; width: 100%; height: 10px; padding: 0;
+            appearance: none; -webkit-appearance: none; cursor: pointer;
+            border: 0; outline-offset: 5px; border-radius: 999px;
+            background: linear-gradient(to right,
+                #e24a4a 0%, #e6d94e 16.67%, #48c85a 33.33%,
+                #39bdc8 50%, #516ce6 66.67%, #c94bd1 83.33%, #e24a4a 100%);
+        }
+        #theme-hue::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 19px; height: 19px; border-radius: 50%;
+            border: 2px solid white; background: var(--theme-600);
+            box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+        }
+        #theme-hue::-moz-range-thumb {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid white; background: var(--theme-600);
+            box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+        }
+        #theme-hue::-moz-range-track { background: transparent; border: 0; }
+        #theme-preview { display: block; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--theme-600);
+            box-shadow: 0 0 0 1px rgba(0,0,0,.14); }
     </style>
 </head>
 
-<body class="h-[100dvh] w-screen flex flex-col overflow-hidden text-gray-800" oncontextmenu="return false;">
+<body class="h-[100dvh] w-full flex flex-col text-gray-800" oncontextmenu="return false;">
 
     <!-- 顶部导航栏 -->
     <header class="flex-none bg-white shadow-sm z-20 flex flex-col">
@@ -183,7 +267,7 @@
                     </svg>
                 </button>
 
-                <button id="btn-restart" onclick="restartGame()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                <button id="btn-restart" onclick="handleRestartClick()" class="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
                     data-i18n-title="restart" data-shortcut="r" aria-keyshortcuts="R" title="重新开始 (R)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -214,7 +298,7 @@
             </div>
         </div>
 
-        <div class="w-full bg-teal-50/50 border-t border-gray-100">
+        <div id="game-stats" class="w-full bg-teal-50/50 border-t border-gray-100">
             <div class="max-w-3xl mx-auto px-4 py-2 flex justify-center items-center gap-8 sm:gap-12 text-sm">
 
                 <div class="flex items-center gap-2">
@@ -239,15 +323,15 @@
     </header>
 
     <!-- 游戏主区域 -->
-    <main class="flex-grow flex items-center justify-center p-2 sm:p-6 overflow-hidden relative flex-col">
+    <main id="game-main" class="flex-grow p-2 sm:p-6 relative flex-col">
+        <canvas id="board-canvas" data-i18n-aria-label="board_canvas" aria-label="星向游戏棋盘" role="img"></canvas>
         <div id="game-container" class="flex flex-col h-full justify-center">
-            <div id="grid-viewport" class="flex-none">
-                <div id="game-grid" class="shadow-xl rounded-sm overflow-hidden"></div>
-            </div>
+            <div id="grid-viewport" class="flex-none" aria-hidden="true"></div>
 
-            <div class="w-full max-w-[600px] mx-auto z-10 px-1 flex flex-col gap-2">
+            <div id="board-controls" class="w-full max-w-[600px] mx-auto px-1 flex flex-col gap-2">
                 
-                <div class="flex justify-end w-full">
+                <div class="flex justify-end items-center gap-2 w-full">
+                    <button id="btn-reset-view" onclick="resetBoardView()" data-i18n-title="reset_board_view" title="重置棋盘缩放" data-i18n-aria-label="reset_board_view" aria-label="重置棋盘缩放" class="bg-white hover:bg-teal-50 text-teal-700 border-2 border-teal-200 font-bold py-2 px-3 rounded-lg transition text-sm shadow-sm">100%</button>
                     <button id="mode-toggle-btn" onclick="toggleNumberDisplay()" data-i18n-title="shortcut_mode" data-shortcut="a" aria-keyshortcuts="A" title="切换数字显示 (A)" class="bg-white hover:bg-blue-50 text-blue-600 border-2 border-blue-200 font-bold py-2 px-3 rounded-lg transition text-sm shadow-sm">
                         显示总数
                     </button>
@@ -267,11 +351,37 @@
                     </button>
                 </div>
             </div>
+            <!-- Editor replaces all normal bottom game controls; no panel background. -->
+            <div id="editor-controls" class="w-full max-w-[600px] mx-auto px-1 pb-1 flex-col gap-2">
+                <div id="editor-opacity-row" class="items-center gap-2">
+                    <label for="editor-opacity" class="text-xs font-semibold text-teal-800 whitespace-nowrap" data-i18n="editor_probability">点亮概率</label>
+                    <input id="editor-opacity" type="range" min="0" max="1" step="0.05" value="0.5" class="accent-teal-600 flex-1 min-w-0 h-5" oninput="setEditorBrushProbability(this.value)" />
+                    <span id="editor-opacity-value" class="text-xs font-bold text-teal-800 w-10 text-right tabular-nums">50%</span>
+                </div>
+                <div id="editor-mark-options" role="group" aria-label="标记类型" data-i18n-aria-label="editor_mark_type">
+                    <button type="button" id="editor-mark-reveal" onclick="selectEditorMarkTarget('reveal')" class="editor-selected flex-1 max-w-[180px] bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-1.5 px-3 font-semibold text-sm transition" data-i18n="editor_mark_reveal" aria-pressed="true">开局揭示</button>
+                    <button type="button" id="editor-mark-hide-number" onclick="selectEditorMarkTarget('hideNumber')" class="flex-1 max-w-[180px] bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-1.5 px-3 font-semibold text-sm transition" data-i18n="editor_mark_hide_number" aria-pressed="false">隐藏数字</button>
+                </div>
+                <div class="flex gap-2 items-center w-full">
+                    <button id="editor-brush" onclick="selectEditorTool('brush')" class="editor-selected flex-1 bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-2 px-3 font-semibold text-sm transition" data-i18n="editor_brush">画笔</button>
+                    <button id="editor-eraser" onclick="selectEditorTool('eraser')" class="flex-1 bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-2 px-3 font-semibold text-sm transition" data-i18n="editor_eraser">橡皮擦</button>
+                    <button id="editor-undo" onclick="editorUndo()" class="bg-white border-2 border-teal-100 text-teal-800 rounded-lg py-2 px-3 font-semibold text-sm disabled:opacity-30" disabled data-i18n-title="editor_undo" data-i18n-aria-label="editor_undo" title="撤回" aria-label="撤回">↶</button>
+                    <button id="editor-redo" onclick="editorRedo()" class="bg-white border-2 border-teal-100 text-teal-800 rounded-lg py-2 px-3 font-semibold text-sm disabled:opacity-30" disabled data-i18n-title="editor_redo" data-i18n-aria-label="editor_redo" title="重做" aria-label="重做">↷</button>
+                    <button id="editor-reset-view" onclick="resetBoardView()" class="bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-2 px-2 font-semibold text-xs" data-i18n-title="reset_board_view" title="重置棋盘缩放" data-i18n-aria-label="reset_board_view" aria-label="重置棋盘缩放">100%</button>
+                </div>
+                <div class="flex items-center gap-3 w-full">
+                    <label for="editor-mark-mode" class="flex-none inline-flex items-center gap-1.5 text-sm font-semibold text-teal-800 cursor-pointer whitespace-nowrap select-none">
+                        <input id="editor-mark-mode" type="checkbox" class="w-4 h-4 accent-teal-600 cursor-pointer" onchange="setEditorMarkMode(this.checked)" />
+                        <span data-i18n="editor_mark_mode">标记模式</span>
+                    </label>
+                    <button id="btn-pattern-library" onclick="openPatternLibrary()" class="min-w-0 flex-1 bg-white border-2 border-teal-200 text-teal-700 rounded-lg py-2 px-3 font-semibold text-sm transition" data-i18n="library_title">图案库</button>
+                </div>
+            </div>
         </div>
 
-        <div class="mt-3 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
+        <div id="game-footer" class="mt-3 text-center text-xs text-teal-700/60 font-medium pointer-events-none select-none px-4">
             <span class="hidden sm:inline" data-i18n="footer_desktop">左键：填色/取消 | 右键：标记空白/取消</span>
-            <span class="inline sm:hidden" data-i18n="footer_mobile">点击：切换填色/空白/未知 | 拖动：标记空白/取消</span>
+            <span class="inline sm:hidden" data-i18n="footer_mobile">单指点击：切换 | 单指拖动：标记空白/取消 | 双指：缩放/移动棋盘</span>
         </div>
     </main>
 
@@ -284,14 +394,14 @@
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100">&times;</button>
             </div>
 
-            <div class="space-y-6">
+            <div id="normal-settings-content" class="space-y-6">
                 <!-- 宽度 -->
                 <div>
                     <div class="flex justify-between mb-2">
                         <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_width">网格宽度</label>
                         <span id="val-w" class="text-sm font-bold text-teal-600">5</span>
                     </div>
-                    <input type="range" id="input-width" min="5" max="15" value="5"
+                    <input type="range" id="input-width" min="5" max="64" value="5"
                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                         oninput="document.getElementById('val-w').innerText = this.value">
                 </div>
@@ -302,7 +412,7 @@
                         <label class="text-sm font-semibold text-gray-700" data-i18n="lbl_height">网格高度</label>
                         <span id="val-h" class="text-sm font-bold text-teal-600">5</span>
                     </div>
-                    <input type="range" id="input-height" min="5" max="15" value="5"
+                    <input type="range" id="input-height" min="5" max="64" value="5"
                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                         oninput="document.getElementById('val-h').innerText = this.value">
                 </div>
@@ -319,10 +429,30 @@
                 </div>
             </div>
 
-            <div class="mt-8">
-                <button id="btn-apply-settings" onclick="applySettings()" data-i18n-title="shortcut_apply" data-shortcut="enter" aria-keyshortcuts="Enter" title="应用并重新开始 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
-                    <span data-i18n="btn_apply">应用并重新开始</span>
-                </button>
+            <div class="mt-5 pt-4 border-t border-gray-100">
+                <div class="flex justify-between items-center mb-3">
+                    <label for="theme-hue" class="text-sm font-semibold text-gray-700" data-i18n="lbl_theme">主题色</label>
+                    <span id="theme-preview" aria-hidden="true"></span>
+                </div>
+                <input id="theme-hue" type="range" min="0" max="359" step="1" value="174"
+                    data-i18n-aria-label="lbl_theme" aria-label="主题色"
+                    oninput="setThemeHue(this.value)" onchange="persistThemeHue()" />
+            </div>
+
+            <div id="normal-settings-actions">
+                <div class="mt-6 pt-4 border-t border-teal-100">
+                    <div class="relative">
+                        <button id="btn-open-editor" onclick="openCustomEditor()" class="w-full bg-white border-2 border-teal-200 hover:bg-teal-50 text-teal-800 font-bold rounded-lg py-3 pl-4 pr-12 transition" data-i18n="editor_entry">自定义图案</button>
+                        <label class="absolute right-3 z-10 flex items-center justify-center cursor-pointer" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);" title="生成时使用自定义图案" data-i18n-title="editor_use_custom">
+                            <input id="custom-pattern-toggle" type="checkbox" data-i18n-aria-label="editor_use_custom" aria-label="生成时使用自定义图案" onchange="setUseCustomPattern(this.checked)" />
+                        </label>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button id="btn-apply-settings" onclick="applySettings()" data-i18n-title="shortcut_apply" data-shortcut="enter" aria-keyshortcuts="Enter" title="应用并重新开始 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                        <span data-i18n="btn_apply">应用并重新开始</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -338,7 +468,7 @@
                     class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition">&times;</button>
             </div>
 
-            <div class="space-y-4 text-sm text-gray-600 leading-relaxed overflow-y-auto max-h-[60vh]">
+            <div id="game-tutorial-content" class="space-y-4 text-sm text-gray-600 leading-relaxed overflow-y-auto max-h-[60vh]">
 
                 <div class="bg-teal-50 p-3 rounded-lg border border-teal-100">
                     <p class="font-bold text-teal-800 mb-1" data-i18n="tut_goal_title">核心目标</p>
@@ -359,10 +489,53 @@
                 </div>
             </div>
 
+            <div id="editor-tutorial-content" class="space-y-3 text-sm text-gray-600 leading-relaxed">
+                <p data-i18n="editor_help_brush">画笔：按概率给格子上色，并使其成为未揭露的棋盘格。</p>
+                <p data-i18n="editor_help_eraser">橡皮擦：删除棋盘格，但保留该位置的概率。</p>
+                <p data-i18n="editor_help_gesture">单指绘制，双指缩放及平移；一整笔可撤回或重做。</p>
+                <p data-i18n="editor_help_clear">顶部重新开始按钮可清空画布，清空前会确认。</p>
+            </div>
             <div class="mt-6">
                 <button id="btn-got-it" onclick="toggleTutorial()" data-i18n-title="shortcut_confirm" data-shortcut="enter" aria-keyshortcuts="Enter" title="明白啦 (Enter)" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
                     <span data-i18n="btn_got_it">明白啦</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Independently saved pattern library. The working canvas remains separate. -->
+    <div id="pattern-library" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[65] p-3 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="pattern-library-title">
+        <div id="pattern-library-panel" class="w-full max-w-2xl min-h-0 flex flex-col bg-white rounded-xl shadow-xl border border-gray-100 p-4 sm:p-5">
+            <div class="flex-none flex items-center justify-between gap-3 mb-3">
+                <h2 id="pattern-library-title" class="text-xl font-bold text-gray-900" data-i18n="library_title">图案库</h2>
+                <button type="button" onclick="closePatternLibrary()" class="text-gray-400 hover:text-gray-600 p-1 text-2xl leading-none" data-i18n-title="shortcut_close" aria-label="关闭">&times;</button>
+            </div>
+            <div id="pattern-library-grid" class="min-h-0 flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 content-start py-1 pr-1" aria-label="Patterns"></div>
+            <div class="flex-none grid grid-cols-4 gap-2 pt-3 mt-2 border-t border-gray-100">
+                <button id="library-load" type="button" onclick="loadSelectedLibraryPattern()" class="bg-teal-600 hover:bg-teal-700 text-white rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_load" disabled>加载</button>
+                <button id="library-overwrite" type="button" onclick="overwriteSelectedLibraryPattern()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_overwrite" disabled>覆盖</button>
+                <button id="library-add" type="button" onclick="addLibraryPattern()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_add">添加</button>
+                <button id="library-delete" type="button" onclick="deleteSelectedLibraryPattern()" class="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_delete" disabled>删除</button>
+                <button id="library-import" type="button" onclick="importLibraryPatterns()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_import">导入</button>
+                <button id="library-export" type="button" onclick="exportLibraryPatterns()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_export" disabled>导出</button>
+                <button id="library-select-all" type="button" onclick="selectAllLibraryPatterns()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_select_all">全选</button>
+                <button id="library-select-none" type="button" onclick="clearLibraryMultiSelection()" class="bg-white hover:bg-teal-50 border-2 border-teal-200 text-teal-700 rounded-lg px-2 py-2.5 text-sm font-semibold" data-i18n="library_select_none" disabled>全不选</button>
+            </div>
+            <input id="library-import-file" type="file" accept=".json,application/json" multiple onchange="handleLibraryPatternImport(event)" />
+        </div>
+    </div>
+
+    <!-- In-app confirmation and warning, consistent with the settings modal. -->
+    <div id="app-dialog" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[80] p-4" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" aria-describedby="app-dialog-message">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-gray-100">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <h2 id="app-dialog-title" class="text-xl font-bold text-gray-900"></h2>
+                <button type="button" onclick="dismissAppDialog()" class="text-gray-400 hover:text-gray-600 p-1 text-xl leading-none" aria-label="关闭">&times;</button>
+            </div>
+            <p id="app-dialog-message" class="text-sm text-gray-600 leading-relaxed"></p>
+            <div class="flex gap-3 mt-6">
+                <button id="app-dialog-cancel" type="button" onclick="dismissAppDialog()" class="flex-1 bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-700 font-semibold rounded-lg px-3 py-3"></button>
+                <button id="app-dialog-confirm" type="button" onclick="acceptAppDialog()" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg px-3 py-3"></button>
             </div>
         </div>
     </div>
@@ -391,13 +564,65 @@
                 btn_undo: "回溯",
                 btn_record: "记录",
                 btn_saved: "已存",
-                footer_desktop: "左键：填色/取消 | 右键：标记空白/取消",
-                footer_mobile: "点击：切换填色/空白/未知 | 拖动：标记空白/取消",
+                footer_desktop: "左键：填色/取消 | 右键：标记空白/取消 | 滚轮：缩放棋盘",
+                footer_mobile: "单指点击：切换 | 单指拖动：标记空白/取消 | 双指：缩放/移动棋盘",
                 modal_settings_title: "游戏设置",
                 lbl_width: "网格宽度",
                 lbl_height: "网格高度",
                 lbl_density: "填色密度",
+                lbl_theme: "主题色",
                 btn_apply: "应用并重新开始",
+                reset_board_view: "重置棋盘缩放",
+                board_canvas: "星向游戏棋盘",
+                editor_entry: "自定义图案",
+                library_title: "图案库",
+                library_load: "加载",
+                library_overwrite: "覆盖",
+                library_add: "添加",
+                library_delete: "删除",
+                library_import: "导入",
+                library_export: "导出",
+                library_new: "新图案",
+                library_select_all: "全选",
+                library_select_none: "全不选",
+                library_delete_many_message: "确定删除选中的 {count} 个图案？",
+                library_import_partial: "已导入 {success} 个图案，{failed} 个文件无效。",
+                library_load_title: "加载图案？",
+                library_load_message: "将选中的图案加载到当前画布？",
+                library_overwrite_title: "覆盖图案？",
+                library_overwrite_message: "用当前画布覆盖选中的图案？",
+                library_delete_title: "删除图案？",
+                library_delete_message: "确定删除选中的图案？",
+                library_empty: "暂无图案",
+                library_invalid_title: "无法导入图案",
+                library_invalid_message: "请选择有效的 64×64 图案 JSON 文件。",
+                library_save_error_title: "保存失败",
+                library_save_error_message: "浏览器储存空间不足，图案库未能保存。",
+
+                editor_title: "自定义图案",
+                editor_back: "返回",
+                editor_brush: "画笔",
+                editor_eraser: "橡皮擦",
+                editor_probability: "点亮概率",
+                editor_mark_mode: "标记模式",
+                editor_mark_type: "标记类型",
+                editor_mark_reveal: "开局揭示",
+                editor_mark_hide_number: "隐藏数字",
+                editor_undo: "撤回",
+                editor_redo: "重做",
+                editor_use_custom: "勾选后生成自定义图案游戏",
+                editor_help_brush: "画笔：按概率给格子上色，并使其成为未揭露的棋盘格。",
+                editor_help_eraser: "橡皮擦：删除棋盘格，但保留该位置的概率。",
+                editor_help_gesture: "单指绘制，双指缩放及平移；右键使用另一工具，滚轮缩放；整笔撤回或重做。",
+                editor_help_clear: "顶部重新开始按钮可清空画布，清空前会确认。",
+                editor_clear_action: "清空画布",
+                editor_clear_title: "确定清空自定义画布？",
+                editor_clear_message: "这将移除全部棋盘格，并将所有格子的生成概率恢复为 50%。清空后可以使用撤回恢复。",
+                editor_clear_confirm: "确认清空",
+                editor_cancel: "取消",
+                editor_ok: "知道了",
+                custom_invalid_title: "无法生成自定义游戏",
+                custom_invalid_message: "当前只有 {count} 个有效棋盘格的点亮概率大于 0，至少需要 4 个。请先在编辑器中添加格子或提高概率。",
                 modal_tutorial_title: "玩法说明",
                 tut_goal_title: "核心目标",
                 tut_goal_desc: "根据格子上的数字提示，推理并还原隐藏的像素图案。",
@@ -434,13 +659,65 @@
                 btn_undo: "Load",
                 btn_record: "Save",
                 btn_saved: "Saved",
-                footer_desktop: "L-Click: Fill | R-Click: Mark Empty",
-                footer_mobile: "Tap: Toggle | Drag: Mark Empty",
+                footer_desktop: "L-Click: Fill | R-Click: Mark Empty | Wheel: Zoom",
+                footer_mobile: "One finger: Tap / Mark | Two fingers: Zoom / Pan",
                 modal_settings_title: "Game Settings",
                 lbl_width: "Grid Width",
                 lbl_height: "Grid Height",
                 lbl_density: "Density",
+                lbl_theme: "Theme Color",
                 btn_apply: "Apply & Restart",
+                reset_board_view: "Reset Board View",
+                board_canvas: "Star Rays Board",
+                editor_entry: "Custom Pattern",
+                library_title: "Patterns",
+                library_load: "Load",
+                library_overwrite: "Replace",
+                library_add: "Add",
+                library_delete: "Delete",
+                library_import: "Import",
+                library_export: "Export",
+                library_new: "New Pattern",
+                library_select_all: "Select All",
+                library_select_none: "Deselect All",
+                library_delete_many_message: "Delete {count} selected patterns?",
+                library_import_partial: "Imported {success} patterns; {failed} files were invalid.",
+                library_load_title: "Load Pattern?",
+                library_load_message: "Load this pattern into the canvas?",
+                library_overwrite_title: "Replace Pattern?",
+                library_overwrite_message: "Replace this saved pattern with the current canvas?",
+                library_delete_title: "Delete Pattern?",
+                library_delete_message: "Delete this saved pattern?",
+                library_empty: "No patterns yet",
+                library_invalid_title: "Import Failed",
+                library_invalid_message: "Choose a valid 64×64 pattern JSON file.",
+                library_save_error_title: "Save Failed",
+                library_save_error_message: "Not enough browser storage to save the library.",
+
+                editor_title: "Custom Pattern",
+                editor_back: "Back",
+                editor_brush: "Brush",
+                editor_eraser: "Eraser",
+                editor_probability: "Fill Chance",
+                editor_mark_mode: "Mark Mode",
+                editor_mark_type: "Mark Type",
+                editor_mark_reveal: "Reveal",
+                editor_mark_hide_number: "Hide Number",
+                editor_undo: "Undo",
+                editor_redo: "Redo",
+                editor_use_custom: "Use Custom Pattern",
+                editor_help_brush: "Brush: Paint hidden cells using the chosen fill chance.",
+                editor_help_eraser: "Eraser: Remove cells without changing their fill chance.",
+                editor_help_gesture: "Drag to paint. Right-click uses the other tool. Pinch to zoom or pan; scroll to zoom. Undo works by stroke.",
+                editor_help_clear: "Restart clears the canvas after confirmation.",
+                editor_clear_action: "Clear Canvas",
+                editor_clear_title: "Clear Custom Canvas?",
+                editor_clear_message: "Remove all cells and reset fill chance to 50%? You can undo this.",
+                editor_clear_confirm: "Clear Canvas",
+                editor_cancel: "Cancel",
+                editor_ok: "OK",
+                custom_invalid_title: "Cannot Generate Custom Game",
+                custom_invalid_message: "Only {count} cells have a nonzero fill chance. At least 4 are needed.",
                 modal_tutorial_title: "How to Play",
                 tut_goal_title: "Goal",
                 tut_goal_desc: "Deduce and reveal the hidden pixel art based on numerical hints.",
@@ -511,6 +788,12 @@
                 }
             });
 
+            // Localize accessible names as well as visible labels and tooltips.
+            document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+                const key = el.getAttribute('data-i18n-aria-label');
+                if (I18N[currentLang][key]) el.setAttribute('aria-label', I18N[currentLang][key]);
+            });
+
             // 3. 更新动态文本 (需要逻辑判断的部分)
             updateDynamicText();
         }
@@ -533,6 +816,9 @@
                 statusTextEl.innerText = t('app_title');
             }
 
+            if (editorMode) statusTextEl.innerText = t('editor_title');
+            updateEditorChrome();
+            if (libraryIsOpen()) renderPatternLibrary();
             // 更新模式按钮
             if (gameState.showRemaining) {
                 modeBtnEl.innerText = t('btn_show_remaining');
@@ -563,6 +849,86 @@
             fillDensity: 0.55
         };
 
+
+        // --- 主题色：一个色相控制整个界面（含 Canvas），不影响谜题状态 ---
+        const THEME_HUE_STORAGE_KEY = 'sr_theme_hue';
+        const DEFAULT_THEME_HUE = 174;
+        const THEME_BASE = {
+            50:'#f0fdfa', 100:'#ccfbf1', 200:'#99f6e4', 300:'#5eead4',
+            600:'#0d9488', 700:'#0f766e', 800:'#115e59',
+            win:'#34d399', grid:'#86d6cd', outer:'#42b6ab',
+            editorGrid:'#abd9d2', editorFill:'#14b8a6'
+        };
+        function readThemeHue() {
+            try {
+                const stored = localStorage.getItem(THEME_HUE_STORAGE_KEY);
+                const n = Number(stored);
+                return stored !== null && Number.isFinite(n)
+                    ? ((Math.round(n) % 360) + 360) % 360 : DEFAULT_THEME_HUE;
+            } catch (_) { return DEFAULT_THEME_HUE; }
+        }
+        let themeHue = readThemeHue();
+        let themePalette = {...THEME_BASE, satisfied:'#2563eb', editorRgb:'20, 184, 166'};
+        const themeHexRgb = hex => [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+        function themeRotate(hex, delta) {
+            if (delta === 0) return hex; // Keep the original colors exact by default.
+            const [rr,gg,bb] = themeHexRgb(hex).map(n=>n/255);
+            const hi = Math.max(rr,gg,bb), lo = Math.min(rr,gg,bb), d = hi-lo;
+            let hue=0, sat=0, light=(hi+lo)/2;
+            if (d) {
+                sat=d/(1-Math.abs(2*light-1));
+                if (hi===rr) hue=((gg-bb)/d)%6;
+                else if (hi===gg) hue=(bb-rr)/d+2;
+                else hue=(rr-gg)/d+4;
+                hue=(hue*60+360)%360;
+            }
+            hue=(hue+delta+360)%360;
+            const chroma=(1-Math.abs(2*light-1))*sat;
+            const x=chroma*(1-Math.abs((hue/60)%2-1));
+            const m=light-chroma/2;
+            const parts=hue<60?[chroma,x,0]:hue<120?[x,chroma,0]:
+                hue<180?[0,chroma,x]:hue<240?[0,x,chroma]:
+                hue<300?[x,0,chroma]:[chroma,0,x];
+            return '#'+parts.map(v=>Math.max(0,Math.min(255,Math.round((v+m)*255)))
+                .toString(16).padStart(2,'0')).join('');
+        }
+        function setThemeHue(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return;
+            themeHue = Math.max(0, Math.min(359, Math.round(numeric)));
+            const delta = themeHue - DEFAULT_THEME_HUE;
+            const next = {};
+            for (const [key, color] of Object.entries(THEME_BASE)) {
+                next[key] = themeRotate(color, delta);
+            }
+            const nearBlue = Math.abs(themeHue - 220) <= 40;
+            next.satisfied = nearBlue ? '#c2410c' : '#2563eb';
+            next.editorRgb = themeHexRgb(next.editorFill).join(', ');
+            themePalette = next;
+            const root = document.documentElement.style;
+            for (const key of [50,100,200,300,600,700,800]) {
+                root.setProperty('--theme-'+key, next[key]);
+            }
+            const rgb50=themeHexRgb(next[50]).join(', ');
+            const rgb700=themeHexRgb(next[700]).join(', ');
+            root.setProperty('--theme-50-half', `rgba(${rgb50}, .5)`);
+            root.setProperty('--theme-700-faded', `rgba(${rgb700}, .6)`);
+            root.setProperty('--contrast-50', nearBlue ? '#fff7ed' : '#eff6ff');
+            root.setProperty('--contrast-200', nearBlue ? '#fed7aa' : '#bfdbfe');
+            root.setProperty('--contrast-600', next.satisfied);
+            const slider = document.getElementById('theme-hue');
+            if (slider && slider.value !== String(themeHue)) slider.value=themeHue;
+            if (typeof scheduleCanvasDraw === 'function') scheduleCanvasDraw();
+            if (typeof libraryIsOpen === 'function' && libraryIsOpen()) renderPatternLibrary();
+        }
+        function persistThemeHue() {
+            try { localStorage.setItem(THEME_HUE_STORAGE_KEY, String(themeHue)); }
+            catch (_) { /* Palette still works if storage is unavailable. */ }
+        }
+        function themeProbabilityColor(probability) {
+            return `rgba(${themePalette.editorRgb}, ${probability})`;
+        }
+
         // --- 数字显示模式持久化 ---
         const NUMBER_DISPLAY_STORAGE_KEY = 'sr_show_remaining';
 
@@ -592,8 +958,35 @@
             startTime: 0,
             timerInterval: null,
 
-            showRemaining: loadNumberDisplayMode()
+            showRemaining: loadNumberDisplayMode(),
+            isCustom: false,
+            playableMask: null,
+            revealedMask: null, // 1 = starting truth is visible and permanently locked
+            hiddenNumberMask: null // 1 = this clue number is not rendered (calculation unchanged)
         };
+
+        // Standalone editor document; intentionally not coupled to normal game settings.
+        const EDITOR_SIZE = 64;
+        const EDITOR_STORAGE_KEY = 'sr_custom_pattern_v1';
+        const CUSTOM_MODE_STORAGE_KEY = 'sr_use_custom_pattern_v1';
+        let useCustomPattern = false;
+        let editorMode = false;
+        let editorPauseStarted = 0;
+        let editorPreviousTitle = '';
+        let editorPreviousTitleClass = '';
+        let editorDocument = {
+            version: 1, width: EDITOR_SIZE, height: EDITOR_SIZE,
+            // -1 = absent; otherwise bit 0 = revealed at start, bit 1 = hide clue number.
+            cellMode: Array(EDITOR_SIZE * EDITOR_SIZE).fill(-1),
+            probability: Array(EDITOR_SIZE * EDITOR_SIZE).fill(0.5)
+        };
+        const editor = {
+            tool: 'brush', brushProbability: 0.5, markMode: false, markTarget: 'reveal',
+            stroke: null, undo: [], redo: [], saved: true, saveTimer: null
+        };
+        function boardDimensions() {
+            return editorMode ? { width: EDITOR_SIZE, height: EDITOR_SIZE } : CONFIG;
+        }
 
         const DIRECTIONS = [
             { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: -1, y: 1 },
@@ -601,17 +994,78 @@
         ];
 
         // --- DOM ---
-        const gridEl = document.getElementById('game-grid');
+        const boardCanvas = document.getElementById('board-canvas');
+        const boardCtx = boardCanvas.getContext('2d', { alpha: true });
         const countEl = document.getElementById('remain-count');
         const timerEl = document.getElementById('timer-display');
         const statusTextEl = document.getElementById('status-text');
         const settingsModal = document.getElementById('settings-modal');
         const tutorialModal = document.getElementById('tutorial-modal');
+        const appDialogEl = document.getElementById('app-dialog');
         const saveSelectEl = document.getElementById('save-select');
         const modeBtnEl = document.getElementById('mode-toggle-btn');
 
         let savedStates = [];
 
+        // A real reveal flag is derived from the saved pattern, never randomized.
+        function isRevealedGameCell(idx) {
+            return !!(gameState.revealedMask && gameState.revealedMask[idx]);
+        }
+        function enforceRevealedCells() {
+            if (!gameState.revealedMask) return;
+            for (let i = 0; i < gameState.revealedMask.length; i++) {
+                if (gameState.revealedMask[i])
+                    gameState.playerGrid[i] = gameState.solutionGrid[i] ? 1 : 3;
+            }
+        }
+
+        // Custom generation toggle is separate from the editor's drawing state.
+        function setUseCustomPattern(enabled) {
+            useCustomPattern = !!enabled;
+            document.getElementById('custom-pattern-toggle').checked = useCustomPattern;
+            try { localStorage.setItem(CUSTOM_MODE_STORAGE_KEY, useCustomPattern ? 'true' : 'false'); }
+            catch (err) { console.warn('Cannot save custom toggle:', err); }
+        }
+        function updateEditorChrome() {
+            // Settings always belongs to the game, including when returning from the editor.
+            const settingsHeading = settingsModal.querySelector('h2');
+            if (settingsHeading) settingsHeading.textContent = t('modal_settings_title');
+            const tutorialHeading = tutorialModal.querySelector('h2');
+            if (tutorialHeading) tutorialHeading.textContent = t('modal_tutorial_title');
+            const restart = document.getElementById('btn-restart');
+            const restartText = editorMode ? t('editor_clear_action') : t('restart');
+            restart.title = restartText + ' (R)';
+            restart.setAttribute('aria-label', restartText);
+            document.getElementById('custom-pattern-toggle').checked = useCustomPattern;
+        }
+        let appDialogAction = null;
+        function showAppDialog(title, message, {confirmText = null, cancelText = null, onConfirm = null} = {}) {
+            appDialogAction = onConfirm;
+            document.getElementById('app-dialog-title').textContent = title;
+            document.getElementById('app-dialog-message').textContent = message;
+            const cancel = document.getElementById('app-dialog-cancel');
+            cancel.classList.toggle('hidden', !onConfirm);
+            cancel.textContent = cancelText || t('editor_cancel');
+            document.getElementById('app-dialog-confirm').textContent = confirmText || t('editor_ok');
+            appDialogEl.classList.remove('hidden');
+            requestAnimationFrame(() => document.getElementById(onConfirm ? 'app-dialog-cancel' : 'app-dialog-confirm').focus());
+        }
+        function dismissAppDialog() {
+            appDialogEl.classList.add('hidden');
+            appDialogAction = null;
+        }
+        function acceptAppDialog() {
+            const action = appDialogAction;
+            dismissAppDialog();
+            if (action) action();
+        }
+        function handleRestartClick() {
+            if (!editorMode) { restartGame(); return; }
+            finishEditorStroke();
+            showAppDialog(t('editor_clear_title'), t('editor_clear_message'), {
+                confirmText: t('editor_clear_confirm'), onConfirm: clearEditorCanvas
+            });
+        }
         // --- 键盘快捷键（仅触发已有按钮，不改变游戏逻辑） ---
         function formatShortcutLabel(shortcut) {
             if (shortcut === 'escape') return 'Esc';
@@ -640,6 +1094,43 @@
         }
 
         function handleKeyboardShortcut(e) {
+            if (libraryIsOpen()) {
+                if (isModalOpen(appDialogEl)) {
+                    if (e.key === 'Escape') {e.preventDefault();dismissAppDialog();}
+                    return;
+                }
+                if (e.key === 'Escape' && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();closePatternLibrary();
+                }
+                return;
+            }
+            if (isModalOpen(appDialogEl)) {
+                if (e.code === 'Escape') { e.preventDefault(); dismissAppDialog(); }
+                return;
+            }
+            if (editorMode) {
+                if (isModalOpen(settingsModal) || isModalOpen(tutorialModal)) {
+                    if (e.code === 'Escape' || e.code === 'KeyS' && isModalOpen(settingsModal)) {
+                        e.preventDefault();
+                        if (isModalOpen(settingsModal)) toggleSettings(); else toggleTutorial();
+                    }
+                    return;
+                }
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyZ') {
+                    e.preventDefault();
+                    if (e.shiftKey) editorRedo(); else editorUndo();
+                    return;
+                }
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyY') {
+                    e.preventDefault(); editorRedo(); return;
+                }
+                if (e.ctrlKey || e.metaKey || e.altKey || shouldIgnoreShortcut(e)) return;
+                if (e.code === 'KeyR') { e.preventDefault(); handleRestartClick(); }
+                if (e.code === 'KeyS') { e.preventDefault(); toggleSettings(); }
+                if (e.code === 'KeyB') selectEditorTool('brush');
+                if (e.code === 'KeyE') selectEditorTool('eraser');
+                return;
+            }
             if (e.ctrlKey || e.metaKey || e.altKey) return;
 
             // 使用物理键位而不是字符值，确保快捷键始终位于左手区域。
@@ -689,9 +1180,9 @@
         // --- 核心流程 ---
 
         function restartGame() {
+            if (editorMode) { handleRestartClick(); return false; }
+            if (!generateLevel()) return false;
             stopTimer();
-
-            generateLevel();
             // --- 重置回溯点 ---
             savedStates = [];
 
@@ -709,7 +1200,8 @@
                 : t('btn_show_total');
 
             gameState.isPlaying = true;
-            gameState.currentFilled = 0;
+            resetBoardView();
+            gameState.currentFilled = gameState.playerGrid.filter(state => state === 1).length;
             gameState.startTime = Date.now();
 
             statusTextEl.innerText = t('app_title');
@@ -726,6 +1218,8 @@
             // 立即存入开局档
             saveGame();
             startTimer();
+            checkWin(); // Fully revealed patterns can legitimately be complete on opening.
+            return true;
         }
 
         function toggleNumberDisplay() {
@@ -811,6 +1305,7 @@
 
             // 覆盖当前盘面
             gameState.playerGrid = [...record.grid];
+            enforceRevealedCells();
 
             // 重新计算已填色数量 (重要：防止计数器出错)
             gameState.currentFilled = gameState.playerGrid.filter(state => state === 1).length;
@@ -873,7 +1368,7 @@
         // 3. 读取并刷新 UI 显示
         function updateBestDisplay() {
             const key = getRecordKey();
-            const best = localStorage.getItem(key);
+            const best = gameState.isCustom ? null : localStorage.getItem(key);
             const el = document.getElementById('best-time-display');
 
             if (best) {
@@ -889,6 +1384,7 @@
 
         // 4. 保存记录 (如果是新纪录则返回 true)
         function trySaveRecord(seconds) {
+            if (gameState.isCustom) return false;
             const key = getRecordKey();
             const currentBest = localStorage.getItem(key);
 
@@ -904,6 +1400,7 @@
         // 计算某个格子在指定网格状态下的数值
         // 规则：数字为邻格朝8个方向延伸的连续填色格的总数（如果自己是填色格就+1）
         function calculateConnection(idx, gridRef) {
+            if (gameState.playableMask && !gameState.playableMask[idx]) return 0;
             const w = CONFIG.width;
             const h = CONFIG.height;
             const sx = idx % w;
@@ -939,130 +1436,500 @@
             return count;
         }
 
+        // 一次性计算整盘的八方向连续填色数：O(8*宽*高)。
+        // 64×64 棋盘上不能对每个格子逐方向反复扫描，拖动画线尤其容易卡顿。
+        function calculateAllConnections(gridRef) {
+            const w = CONFIG.width, h = CONFIG.height;
+            const size = w * h;
+            const counts = new Int32Array(size);
+            const filled = new Uint8Array(size);
+            for (let i = 0; i < size; i++) {
+                filled[i] = (gridRef[i] === true || gridRef[i] === 1) ? 1 : 0;
+                counts[i] = filled[i];
+            }
+            for (const dir of DIRECTIONS) {
+                const run = new Int32Array(size);
+                const yStart = dir.y > 0 ? h - 1 : 0;
+                const yEnd = dir.y > 0 ? -1 : h;
+                const yStep = dir.y > 0 ? -1 : 1;
+                const xStart = dir.x > 0 ? w - 1 : 0;
+                const xEnd = dir.x > 0 ? -1 : w;
+                const xStep = dir.x > 0 ? -1 : 1;
+                for (let y = yStart; y !== yEnd; y += yStep) {
+                    for (let x = xStart; x !== xEnd; x += xStep) {
+                        const nx = x + dir.x, ny = y + dir.y;
+                        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+                        const i = y * w + x, ni = ny * w + nx;
+                        run[i] = filled[ni] ? 1 + run[ni] : 0;
+                        counts[i] += run[i];
+                    }
+                }
+            }
+            // Nonexistent cells are not clues. Although their empty center may
+            // geometrically see filled neighbors, the puzzle must never ask the
+            // player to satisfy a number outside its playable mask.
+            if (gameState.playableMask) {
+                for (let i = 0; i < size; i++) if (!gameState.playableMask[i]) counts[i] = 0;
+            }
+            return counts;
+        }
+
+        // The editor stays at 64×64. A generated custom puzzle uses only the
+        // bounding rectangle of existing cells; missing cells are impassable holes.
+        function getCustomPatternBounds() {
+            let minX = 64, minY = 64, maxX = -1, maxY = -1, eligible = 0;
+            for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+                const idx = y * 64 + x;
+                if (editorDocument.cellMode[idx] < 0) continue;
+                if (editorDocument.probability[idx] > 0) eligible++;
+                minX = Math.min(minX, x); minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            }
+            return {minX, minY, maxX, maxY, eligible};
+        }
+        function customSourceValid() { return getCustomPatternBounds().eligible >= 4; }
         function generateLevel() {
+            if (useCustomPattern) {
+                const bounds = getCustomPatternBounds();
+                if (bounds.eligible < 4) {
+                    showAppDialog(t('custom_invalid_title'),
+                        t('custom_invalid_message').replace('{count}', String(bounds.eligible)));
+                    return false;
+                }
+                const w = bounds.maxX - bounds.minX + 1;
+                const h = bounds.maxY - bounds.minY + 1;
+                const size = w * h;
+                const mask = new Uint8Array(size);
+                const revealed = new Uint8Array(size);
+                const hiddenNumbers = new Uint8Array(size);
+                const solution = Array(size).fill(false);
+                let filled = 0, maxP = -1;
+                const maxProbIndices = [];
+                for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+                    const si = (bounds.minY + r) * 64 + bounds.minX + c;
+                    const di = r * w + c;
+                    if (editorDocument.cellMode[si] < 0) continue;
+                    mask[di] = 1;
+                    // Both flags can coexist; bit checks must not use equality.
+                    const cellFlags = editorDocument.cellMode[si];
+                    if (cellFlags & 1) revealed[di] = 1;
+                    if (cellFlags & 2) hiddenNumbers[di] = 1;
+                    const p = editorDocument.probability[si];
+                    if (p > maxP) { maxP = p; maxProbIndices.length = 0; maxProbIndices.push(di); }
+                    else if (p === maxP) maxProbIndices.push(di);
+                    if (Math.random() < p) { solution[di] = true; filled++; }
+                }
+                // Even a valid source can sample all false. Force exactly one
+                // among the highest-probability existing cells, chosen uniformly.
+                if (filled === 0 && maxProbIndices.length) {
+                    solution[maxProbIndices[Math.floor(Math.random() * maxProbIndices.length)]] = true;
+                    filled = 1;
+                }
+                CONFIG.width = w; CONFIG.height = h;
+                gameState.playableMask = mask;
+                gameState.revealedMask = revealed;
+                gameState.hiddenNumberMask = hiddenNumbers;
+                gameState.isCustom = true;
+                gameState.solutionGrid = solution;
+                gameState.playerGrid = Array.from(revealed, (flag, i) =>
+                    flag ? (solution[i] ? 1 : 3) : 0);
+                gameState.totalToFill = filled;
+                gameState.targetValues = Array.from(calculateAllConnections(solution));
+                return true;
+            }
+            // Keep the ordinary game's sliders authoritative. A previously
+            // generated custom bounding rectangle must not overwrite normal sizes.
+            CONFIG.width = parseInt(document.getElementById('input-width').value);
+            CONFIG.height = parseInt(document.getElementById('input-height').value);
+            CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
             const w = CONFIG.width;
             const h = CONFIG.height;
             const size = w * h;
-
-            gameState.solutionGrid = new Array(size).fill(false);
-            gameState.playerGrid = new Array(size).fill(0);
-            gameState.targetValues = new Array(size).fill(0);
-
-            // 1. 生成随机答案
+            const solution = new Array(size).fill(false);
             const K = Math.max(0, Math.min(size, Math.round(size * CONFIG.fillDensity)));
             const idxs = Array.from({ length: size }, (_, i) => i);
-
-            // 洗牌
             for (let i = size - 1; i > 0; i--) {
                 const j = (Math.random() * (i + 1)) | 0;
                 [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
             }
-
-            // 填入前K个
-            for (let i = 0; i < K; i++) {
-                gameState.solutionGrid[idxs[i]] = true;
-            }
+            for (let i = 0; i < K; i++) solution[idxs[i]] = true;
+            gameState.isCustom = false;
+            gameState.playableMask = null;
+            gameState.revealedMask = null;
+            gameState.hiddenNumberMask = null;
+            gameState.solutionGrid = solution;
+            gameState.playerGrid = Array(size).fill(0);
             gameState.totalToFill = K;
-
-            // 2. 基于答案计算所有格子的目标数字
-            for (let i = 0; i < size; i++) {
-                gameState.targetValues[i] = calculateConnection(i, gameState.solutionGrid);
-            }
+            gameState.targetValues = Array.from(calculateAllConnections(solution));
+            return true;
         }
 
-        // --- 布局逻辑 ---
+        // --- Canvas 2D: retain a screen-sized backing store at device pixel ratio. ---
+        const BOARD_MIN_ZOOM = 0.5;
+        const BOARD_MAX_ZOOM = 16;
+        const boardView = { zoom: 1, panX: 0, panY: 0 };
+        const gridViewportEl = document.getElementById('grid-viewport');
         let ro = null;
+        let boardCell = 1;
+        let canvasDpr = 1;
+        let canvasWidth = 1, canvasHeight = 1;
+        let canvasPaintPending = false;
+        let currentValues = new Int32Array(0);
+        // Original DOM victory effect: each filled cell turns emerald with white text,
+        // rounds its corners, then pulses 1 -> .9 -> .95 in 600ms, staggered by 5ms.
+        // Canvas redraws the pixels rather than scaling a cached texture.
+        const WIN_PULSE_MS = 600;
+        const WIN_STAGGER_CAP_MS = 1200; // Prevent a 64x64 win from lasting 20 seconds.
+        const BOARD_RETURN_MS = 220; // Quick, decisive recenter. The 600ms green pulse remains unchanged.
+        let winAnimationStart = 0;
+        let winPulseOrder = new Int32Array(0); // -1 for not-filled, otherwise original DOM order.
+        let winStaggerMs = 5;
+        let winAnimationDuration = 0;
+        let boardReturnAnimation = null;
+
+        function canvasGeometry() {
+            const screen = boardCanvas.getBoundingClientRect();
+            const fit = gridViewportEl.getBoundingClientRect();
+            const centerX = fit.left - screen.left + fit.width / 2;
+            const centerY = fit.top - screen.top + fit.height / 2;
+            const cellSize = boardCell * boardView.zoom;
+            const { width, height } = boardDimensions();
+            return {
+                screen, cellSize,
+                left: centerX + boardView.panX - width * cellSize / 2,
+                top: centerY + boardView.panY - height * cellSize / 2
+            };
+        }
+
+        function resizeCanvasBacking() {
+            const rect = boardCanvas.getBoundingClientRect();
+            const w = Math.max(1, rect.width);
+            const h = Math.max(1, rect.height);
+            const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+            const bw = Math.max(1, Math.round(w * dpr));
+            const bh = Math.max(1, Math.round(h * dpr));
+            if (boardCanvas.width !== bw || boardCanvas.height !== bh) {
+                boardCanvas.width = bw;
+                boardCanvas.height = bh;
+            }
+            canvasDpr = dpr;
+            canvasWidth = w;
+            canvasHeight = h;
+        }
 
         function layoutGridToFit() {
-            const viewport = document.getElementById('grid-viewport');
-            if (!viewport) return;
-
-            const cols = CONFIG.width;
-            const rows = CONFIG.height;
-            const vr = viewport.getBoundingClientRect();
-            const availW = vr.width;
-            const availH = vr.height;
-
-            const gs = getComputedStyle(gridEl);
-            const gap = parseFloat(gs.gap) || 0;
-            const border = parseFloat(gs.borderLeftWidth) || 0;
-
-            const cellW = (availW - 2 * border - (cols - 1) * gap) / cols;
-            const cellH = (availH - 2 * border - (rows - 1) * gap) / rows;
-            const cell = Math.max(1, Math.min(cellW, cellH));
-
-            gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
-            gridEl.style.gridTemplateRows = `repeat(${rows}, ${cell}px)`;
-
-            const gridW = cols * cell + (cols - 1) * gap + 2 * border;
-            const gridH = rows * cell + (rows - 1) * gap + 2 * border;
-
-            gridEl.style.width = `${gridW}px`;
-            gridEl.style.height = `${gridH}px`;
-            gridEl.style.setProperty('--cell', `${cell}px`);
+            const rect = gridViewportEl.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const { width, height } = boardDimensions();
+            boardCell = Math.max(0.1, Math.min(rect.width / width, rect.height / height));
+            resizeCanvasBacking();
+            applyBoardView();
         }
 
-        // --- 渲染 ---
-        function renderGrid() {
-            gridEl.innerHTML = '';
-            for (let i = 0; i < CONFIG.width * CONFIG.height; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell unknown';
-                cell.dataset.index = i;
-                cell.onpointerdown = handlePointerDown; // 记录按下
-                gridEl.appendChild(cell);
-                updateCellView(i);
+        function clampBoardPan() {
+            const viewportW = gridViewportEl.clientWidth;
+            const viewportH = gridViewportEl.clientHeight;
+            const { width, height } = boardDimensions();
+            const gridW = width * boardCell * boardView.zoom;
+            const gridH = height * boardCell * boardView.zoom;
+            const maxX = Math.max(0, (gridW - viewportW) / 2);
+            const maxY = Math.max(0, (gridH - viewportH) / 2);
+            boardView.panX = Math.max(-maxX, Math.min(maxX, boardView.panX));
+            boardView.panY = Math.max(-maxY, Math.min(maxY, boardView.panY));
+        }
+
+        function scheduleCanvasDraw() {
+            if (canvasPaintPending) return;
+            canvasPaintPending = true;
+            requestAnimationFrame(() => {
+                canvasPaintPending = false;
+                paintCanvas();
+            });
+        }
+
+        function updateZoomLabels() {
+            const pct = `${Math.round(boardView.zoom * 100)}%`;
+            for (const id of ['btn-reset-view', 'editor-reset-view']) {
+                const button = document.getElementById(id);
+                if (button) button.textContent = pct;
             }
+        }
+
+        function applyBoardView() {
+            clampBoardPan();
+            updateZoomLabels();
+            scheduleCanvasDraw();
+        }
+
+        function cancelBoardReturnAnimation() { boardReturnAnimation = null; }
+
+        function resetBoardView() {
+            cancelBoardReturnAnimation();
+            boardView.zoom = 1;
+            boardView.panX = 0;
+            boardView.panY = 0;
+            applyBoardView();
+        }
+
+        function smoothEase(t) { return (1 - Math.cos(Math.PI * t)) / 2; }
+
+        function advanceBoardReturnAnimation(now) {
+            const animation = boardReturnAnimation;
+            if (!animation) return false;
+            const t = Math.max(0, Math.min(1, (now - animation.start) / BOARD_RETURN_MS));
+            // Ease OUT only: return immediately at speed, then stop firmly.
+            // The old cosine ease-in-out made the board linger before moving.
+            const ease = 1 - Math.pow(1 - t, 3);
+            // Interpolate the actual board-space view, not the document or Canvas CSS size.
+            boardView.zoom = animation.zoom + (1 - animation.zoom) * ease;
+            boardView.panX = animation.panX * (1 - ease);
+            boardView.panY = animation.panY * (1 - ease);
+            if (t >= 1) {
+                boardView.zoom = 1;
+                boardView.panX = boardView.panY = 0;
+                boardReturnAnimation = null;
+            }
+            clampBoardPan();
+            updateZoomLabels();
+            return t < 1;
+        }
+
+        function beginVictoryAnimations() {
+            const now = performance.now();
+            winAnimationStart = now;
+            winPulseOrder = new Int32Array(gameState.playerGrid.length).fill(-1);
+            let filledOrdinal = 0;
+            for (let i = 0; i < gameState.playerGrid.length; i++) {
+                if ((!gameState.playableMask || gameState.playableMask[i]) && gameState.playerGrid[i] === 1)
+                    winPulseOrder[i] = filledOrdinal++;
+            }
+            // Preserve the source's 5ms-per-filled-cell stagger for normal boards;
+            // cap its overall spread for huge custom/64x64 boards.
+            winStaggerMs = filledOrdinal > 1
+                ? Math.min(5, WIN_STAGGER_CAP_MS / (filledOrdinal - 1)) : 0;
+            winAnimationDuration = WIN_PULSE_MS + Math.max(0, filledOrdinal - 1) * winStaggerMs;
+            boardReturnAnimation = Math.abs(boardView.zoom - 1) > 1e-5 ||
+                Math.abs(boardView.panX) > 0.01 || Math.abs(boardView.panY) > 0.01
+                ? { start: now, zoom: boardView.zoom, panX: boardView.panX, panY: boardView.panY }
+                : null;
+            scheduleCanvasDraw();
+        }
+
+        function drawWinCell(ctx, cx, cy, size, text, font, time) {
+            // CSS original: @keyframes winPulse 0.6s ease-in-out; 0% 1,
+            // 50% .9, 100% .95. The green fill and white letters remain afterward.
+            const p = Math.min(1, Math.max(0, time / WIN_PULSE_MS));
+            const scale = p < 0.5
+                ? 1 - 0.1 * smoothEase(p * 2)
+                : 0.9 + 0.05 * smoothEase((p - 0.5) * 2);
+            const radius = Math.min(4, size / 2);
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+            const x = -size / 2, y = -size / 2;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(x, y, size, size, radius);
+            } else { // Older iOS Safari fallback.
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + size - radius, y);
+                ctx.quadraticCurveTo(x + size, y, x + size, y + radius);
+                ctx.lineTo(x + size, y + size - radius);
+                ctx.quadraticCurveTo(x + size, y + size, x + size - radius, y + size);
+                ctx.lineTo(x + radius, y + size);
+                ctx.quadraticCurveTo(x, y + size, x, y + size - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.closePath();
+            }
+            ctx.fillStyle = themePalette.win;
+            ctx.fill();
+            ctx.font = font;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(text, 0, 0, size * 0.98);
+            ctx.restore();
+        }
+
+        function renderGrid() {
+            // Never instantiate a DOM node per cell. Only the game arrays change.
+            currentValues = calculateAllConnections(gameState.playerGrid);
+            winAnimationStart = 0;
+            winPulseOrder = new Int32Array(0);
+            winAnimationDuration = 0;
+            cancelBoardReturnAnimation();
             requestAnimationFrame(layoutGridToFit);
         }
 
-        function updateCellView(idx, recolor = true) {
-            const cell = gridEl.children[idx];
-            if (!cell) return;
-
-            const state = gameState.playerGrid[idx];
-            const target = gameState.targetValues[idx];
-
-            if (recolor) {
-                // 基础样式重置
-                cell.className = 'cell';
-
-                // 状态样式
-                if (state === 0) {
-                    cell.classList.add('unknown');
-                } else if (state === 1) {
-                    cell.classList.add('filled');
-                } else if (state === 3) {
-                    cell.classList.add('marked-empty');
-                }
-            }
-
-            // 检查数字状态 (蓝色高亮 or 红色警告)
-            const currentVal = calculateConnection(idx, gameState.playerGrid);
-
-            // 显示数字 (所有格子都显示)
-            if (gameState.showRemaining) {
-                // 显示剩余模式：目标 - 当前
-                const diff = target - currentVal;
-                cell.innerText = diff; // 允许负数
-            } else {
-                // 显示总数模式：显示原始目标
-                cell.innerText = target;
-            }
-
-            if (recolor) {
-                if (currentVal > target) {
-                    cell.classList.add('overloaded'); // 红色
-                } else if (currentVal === target) {
-                    cell.classList.add('satisfied'); // 蓝色
-                }
-            }
+        function updateAllCellsVisuals(_recolor = true) {
+            // Computation happens on game-state changes, NOT during zoom/pan frames.
+            currentValues = calculateAllConnections(gameState.playerGrid);
+            scheduleCanvasDraw();
         }
 
-        function updateAllCellsVisuals(recolor = true) {
-            for (let i = 0; i < gameState.playerGrid.length; i++) {
-                updateCellView(i, recolor);
+        function paintCanvas() {
+            if (!boardCtx) return;
+            const now = performance.now();
+            const returning = advanceBoardReturnAnimation(now);
+            const winElapsed = winAnimationStart ? now - winAnimationStart : -1;
+            const pulsing = winAnimationStart > 0 && winElapsed < winAnimationDuration;
+            const ctx = boardCtx;
+            const dpr = canvasDpr;
+            const { cellSize, left, top } = canvasGeometry();
+            const { width: w, height: h } = boardDimensions();
+            const canvasW = canvasWidth, canvasH = canvasHeight;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            if (cellSize <= 0) return;
+
+            // Only shade/label cells actually visible on the screen.
+            const c0 = Math.max(0, Math.floor(-left / cellSize));
+            const c1 = Math.min(w - 1, Math.floor((canvasW - left) / cellSize));
+            const r0 = Math.max(0, Math.floor(-top / cellSize));
+            const r1 = Math.min(h - 1, Math.floor((canvasH - top) / cellSize));
+            if (c0 > c1 || r0 > r1) {
+                if (returning || pulsing) scheduleCanvasDraw();
+                return;
             }
+            if (editorMode) {
+                paintEditorCanvas(ctx, {w, h, c0, c1, r0, r1, cellSize, left, top, canvasW, canvasH, dpr});
+                return;
+            }
+
+            // Match original fill colors exactly; the border and text are separate passes.
+            const fills = ['#ffffff', themePalette[100], '#ffffff', '#e5e5e5'];
+            for (let r = r0; r <= r1; r++) {
+                for (let c = c0; c <= c1; c++) {
+                    const i = r * w + c;
+                    if (gameState.playableMask && !gameState.playableMask[i]) continue;
+                    const state = gameState.playerGrid[i];
+                    ctx.fillStyle = fills[state];
+                    const x = left + c * cellSize;
+                    const y = top + r * cellSize;
+                    ctx.fillRect(x, y, cellSize + 0.05, cellSize + 0.05);
+                }
+            }
+
+            // Grid lines are freshly drawn at physical-pixel boundaries. In
+            // custom mode each existing square has a contour, with no lines in
+            // nonexistent cells; disjoint islands and holes therefore remain real.
+            const gridWidthPixels = Math.max(1, Math.round(dpr));
+            const px = v => (Math.round(v * dpr) + (gridWidthPixels % 2 ? 0.5 : 0)) / dpr;
+            ctx.lineWidth = gridWidthPixels / dpr;
+            const ymin = Math.max(0, top);
+            const ymax = Math.min(canvasH, top + h * cellSize);
+            const xmin = Math.max(0, left);
+            const xmax = Math.min(canvasW, left + w * cellSize);
+            if (!gameState.playableMask) {
+                ctx.beginPath();
+                ctx.strokeStyle = themePalette.grid;
+                for (let c = Math.max(1, c0); c <= Math.min(w - 1, c1 + 1); c++) {
+                    const x = px(left + c * cellSize);
+                    ctx.moveTo(x, ymin); ctx.lineTo(x, ymax);
+                }
+                for (let r = Math.max(1, r0); r <= Math.min(h - 1, r1 + 1); r++) {
+                    const y = px(top + r * cellSize);
+                    ctx.moveTo(xmin, y); ctx.lineTo(xmax, y);
+                }
+                ctx.stroke();
+                ctx.strokeStyle = themePalette.outer;
+                ctx.lineWidth = 1.6;
+                ctx.strokeRect(left, top, w * cellSize, h * cellSize);
+            } else {
+                const mask = gameState.playableMask;
+                ctx.beginPath(); ctx.strokeStyle = themePalette.grid;
+                for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+                    const i = r * w + c;
+                    if (!mask[i]) continue;
+                    const x = px(left + c * cellSize), x2 = px(left + (c + 1) * cellSize);
+                    const y = px(top + r * cellSize), y2 = px(top + (r + 1) * cellSize);
+                    if (c > 0 && mask[i - 1]) { ctx.moveTo(x, y); ctx.lineTo(x, y2); }
+                    if (r > 0 && mask[i - w]) { ctx.moveTo(x, y); ctx.lineTo(x2, y); }
+                }
+                ctx.stroke();
+                ctx.beginPath(); ctx.strokeStyle = themePalette.outer;
+                for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+                    const i = r * w + c;
+                    if (!mask[i]) continue;
+                    const x = px(left + c * cellSize), x2 = px(left + (c + 1) * cellSize);
+                    const y = px(top + r * cellSize), y2 = px(top + (r + 1) * cellSize);
+                    if (c === 0 || !mask[i - 1]) { ctx.moveTo(x, y); ctx.lineTo(x, y2); }
+                    if (r === 0 || !mask[i - w]) { ctx.moveTo(x, y); ctx.lineTo(x2, y); }
+                    if (c === w - 1 || !mask[i + 1]) { ctx.moveTo(x2, y); ctx.lineTo(x2, y2); }
+                    if (r === h - 1 || !mask[i + w]) { ctx.moveTo(x, y2); ctx.lineTo(x2, y2); }
+                }
+                ctx.stroke();
+            }
+
+            const fontFamily = '"Courier New", Courier, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 0;
+            const fontCache = new Map();
+            for (let r = r0; r <= r1; r++) {
+                for (let c = c0; c <= c1; c++) {
+                    const i = r * w + c;
+                    if (gameState.playableMask && !gameState.playableMask[i]) continue;
+                    const state = gameState.playerGrid[i];
+                    const goal = gameState.targetValues[i];
+                    const val = currentValues[i] || 0;
+                    // Hidden clues still participate in the full solving and win rules.
+                    const hideNumber = !!(gameState.hiddenNumberMask && gameState.hiddenNumberMask[i]);
+                    const str = hideNumber ? '' : String(gameState.showRemaining ? goal - val : goal);
+                    const scale = str.length >= 4 ? 0.36 : str.length === 3 ? 0.49 : str.length === 2 ? 0.65 : 0.74;
+                    const fontSize = Math.max(1.5 * boardView.zoom,
+                        Math.min(32 * boardView.zoom, cellSize * scale));
+                    // The font size is the ACTUAL displayed size: text is freshly rasterized.
+                    const fontKey = `${fontSize.toFixed(2)}:${val >= goal}`;
+                    if (!fontCache.has(fontKey)) fontCache.set(fontKey,
+                        `${val >= goal ? '900' : '700'} ${fontSize}px ${fontFamily}`);
+                    const font = fontCache.get(fontKey);
+                    const x = left + (c + 0.5) * cellSize;
+                    const y = top + (r + 0.5) * cellSize;
+                    const ordinal = winPulseOrder[i] ?? -1;
+                    if (winAnimationStart > 0 && state === 1 && ordinal >= 0) {
+                        const cellElapsed = winElapsed - ordinal * winStaggerMs;
+                        if (cellElapsed >= 0) {
+                            // Render above the underlying grid line so the rounded,
+                            // inset emerald tile looks like the original .win-anim cell.
+                            drawWinCell(ctx, x, y, cellSize, str, font, cellElapsed);
+                            continue;
+                        }
+                    }
+                    ctx.font = font;
+                    ctx.fillStyle = val > goal ? '#ef4444' : val === goal ? themePalette.satisfied :
+                        state === 3 ? '#a3a3a3' : '#111827';
+                    if (!hideNumber) ctx.fillText(str, x, y, cellSize * 0.98);
+                }
+            }
+            ctx.shadowBlur = 0;
+            // Draw revealed markers LAST, above the win-pulse emerald tiles
+            // as well as the regular digits. They must remain visible after a win.
+            if (gameState.revealedMask && cellSize >= 5) {
+                ctx.save();
+                ctx.fillStyle = themePalette[700];
+                for (let r = r0; r <= r1; r++) {
+                    for (let c = c0; c <= c1; c++) {
+                        const i = r * w + c;
+                        if (gameState.playableMask && !gameState.playableMask[i]) continue;
+                        if (!gameState.revealedMask[i]) continue;
+                        const x = left + c * cellSize;
+                        const y = top + r * cellSize;
+                        ctx.beginPath();
+                        ctx.arc(
+                            x + cellSize * 0.83,
+                            y + cellSize * 0.17,
+                            Math.max(1.5, cellSize * 0.105),
+                            0,
+                            Math.PI * 2
+                        );
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            }
+
+            if (returning || pulsing) scheduleCanvasDraw();
         }
 
         function updateUI() {
@@ -1081,217 +1948,1030 @@
             }
         }
 
-        // --- 交互逻辑 ---
+        // --- Pattern library: separate from the autosaved working canvas. ---
+        const PATTERN_LIBRARY_KEY = 'sr_pattern_library_v1';
+        const patternLibraryEl = document.getElementById('pattern-library');
+        const patternLibraryGrid = document.getElementById('pattern-library-grid');
+        const libraryFileInput = document.getElementById('library-import-file');
+        let patternLibrary = { version: 1, nextId: 1, nextNameNumber: 1, entries: [] };
+        let selectedLibraryId = null; // Single-selection: always the last touched card.
+        const checkedLibraryIds = new Set(); // Independent multi-selection.
+        let libraryDrag = null;
+        function validPatternData(data) {
+            if (!data || data.width !== 64 || data.height !== 64 ||
+                !Array.isArray(data.cellMode) || !Array.isArray(data.probability) ||
+                data.cellMode.length !== 4096 || data.probability.length !== 4096) return false;
+            // Version 1 documents remain valid. Values 2 and 3 add the hide-number bit.
+            return data.cellMode.every(v => Number.isInteger(v) && (v === -1 || (v >= 0 && v <= 3))) &&
+                data.probability.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1);
+        }
+        function isEmptyLibraryPattern(item) {
+            // A pattern with real cells is not empty, even if their fill chance is zero.
+            return item.cellMode.every(mode => mode === -1);
+        }
+        function snapshotWorkingPattern() {
+            return {cellMode: editorDocument.cellMode.slice(), probability: editorDocument.probability.slice()};
+        }
+        function readPatternLibrary() {
+            try {
+                const raw = localStorage.getItem(PATTERN_LIBRARY_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (data.version !== 1 || !Array.isArray(data.entries)) return;
+                const unique = new Set();
+                const entries = [];
+                for (const item of data.entries) {
+                    if (!validPatternData({...item, width: item.width ?? 64, height: item.height ?? 64}) ||
+                        !Number.isSafeInteger(item.id) || item.id < 1 || unique.has(item.id)) continue;
+                    unique.add(item.id);
+                    entries.push({id:item.id, name: String(item.name || '').slice(0,50) || t('library_new'),
+                        width:64, height:64,
+                        cellMode: item.cellMode.slice(), probability: item.probability.slice()});
+                }
+                patternLibrary = {
+                    version: 1,
+                    nextId: Math.max(1, Number(data.nextId) || 1, ...entries.map(v => v.id + 1)),
+                    nextNameNumber: Math.max(1, Number(data.nextNameNumber) || 1),
+                    entries
+                };
+            } catch (error) { console.warn('Cannot read pattern library:', error); }
+        }
+        function savePatternLibrary() {
+            try {
+                localStorage.setItem(PATTERN_LIBRARY_KEY, JSON.stringify(patternLibrary));
+                return true;
+            } catch (error) {
+                console.warn('Cannot save pattern library:', error);
+                showAppDialog(t('library_save_error_title'), t('library_save_error_message'));
+                return false;
+            }
+        }
+        function libraryIsOpen() { return !patternLibraryEl.classList.contains('hidden'); }
+        function selectedLibraryPattern() {
+            return patternLibrary.entries.find(v => v.id === selectedLibraryId) || null;
+        }
+        function openPatternLibrary() {
+            if (!editorMode || isModalOpen(appDialogEl)) return;
+            finishEditorStroke();
+            saveEditorDocument();
+            renderPatternLibrary();
+            patternLibraryEl.classList.remove('hidden');
+        }
+        function closePatternLibrary() {
+            patternLibraryEl.classList.add('hidden');
+            const input = document.activeElement;
+            if (input && input.classList && input.classList.contains('pattern-name')) input.blur();
+        }
+        function selectedLibraryBatch() {
+            // Batch actions use all checked patterns, otherwise the outlined one.
+            if (checkedLibraryIds.size) return patternLibrary.entries.filter(v => checkedLibraryIds.has(v.id));
+            const single = selectedLibraryPattern();
+            return single ? [single] : [];
+        }
+        function updateLibrarySelectionUI() {
+            for (const card of patternLibraryGrid.querySelectorAll('.pattern-card')) {
+                const id = Number(card.dataset.patternId);
+                const single = id === selectedLibraryId;
+                const checked = checkedLibraryIds.has(id);
+                card.classList.toggle('is-selected', single);
+                card.classList.toggle('is-checked', checked);
+                card.setAttribute('aria-selected', String(single));
+                const box = card.querySelector('.pattern-checkbox');
+                if (box) box.checked = checked;
+            }
+            const hasSingle = !!selectedLibraryPattern();
+            document.getElementById('library-load').disabled = !hasSingle;
+            document.getElementById('library-overwrite').disabled = !hasSingle;
+            const hasBatch = selectedLibraryBatch().length > 0;
+            document.getElementById('library-delete').disabled = !hasBatch;
+            document.getElementById('library-export').disabled = !hasBatch;
+            document.getElementById('library-select-all').disabled = !patternLibrary.entries.length || checkedLibraryIds.size === patternLibrary.entries.length;
+            document.getElementById('library-select-none').disabled = checkedLibraryIds.size === 0;
+        }
+        function selectLibraryCard(id, includeInBatch = true) {
+            if (!patternLibrary.entries.some(v => v.id === id)) return;
+            selectedLibraryId = id;
+            // Once any checkbox is checked, tapping or sweeping cards adds to the batch.
+            if (includeInBatch && checkedLibraryIds.size) checkedLibraryIds.add(id);
+            updateLibrarySelectionUI();
+        }
+        function toggleLibraryChecked(id, checked) {
+            if (!patternLibrary.entries.some(v => v.id === id)) return;
+            selectedLibraryId = id;
+            if (checked) checkedLibraryIds.add(id);
+            else checkedLibraryIds.delete(id);
+            updateLibrarySelectionUI();
+        }
+        function selectAllLibraryPatterns() {
+            for (const item of patternLibrary.entries) checkedLibraryIds.add(item.id);
+            updateLibrarySelectionUI();
+        }
+        function clearLibraryMultiSelection() {
+            checkedLibraryIds.clear();
+            updateLibrarySelectionUI();
+        }
+        function libraryCardAt(clientX, clientY) {
+            const element = document.elementFromPoint(clientX, clientY);
+            const card = element && element.closest ? element.closest('.pattern-card') : null;
+            return card && patternLibraryGrid.contains(card) ? card : null;
+        }
+        // Drag/touch painting of checkboxes in multi-select mode. Native scrolling
+        // is retained on touch, and naming inputs remain independently editable.
+        patternLibraryGrid.addEventListener('pointerdown', event => {
+            const card = event.target.closest('.pattern-card');
+            if (!card || event.target.closest('.pattern-name')) return;
+            if (event.target.closest('.pattern-checkbox')) {
+                // Checkbox's native change handler controls its checked state.
+                libraryDrag = null;
+                return;
+            }
+            const id = Number(card.dataset.patternId);
+            const isMulti = checkedLibraryIds.size > 0;
+            selectLibraryCard(id);
+            libraryDrag = isMulti ? {id:event.pointerId, type:event.pointerType} : null;
+        });
+        patternLibraryGrid.addEventListener('pointermove', event => {
+            if (!libraryDrag || event.pointerId !== libraryDrag.id || !checkedLibraryIds.size) return;
+            if (event.pointerType === 'mouse' && !(event.buttons & 1)) return;
+            const card = libraryCardAt(event.clientX, event.clientY);
+            if (card && !event.target.closest('.pattern-name')) selectLibraryCard(Number(card.dataset.patternId));
+        });
+        patternLibraryGrid.addEventListener('touchmove', event => {
+            if (!libraryDrag || libraryDrag.type !== 'touch' || !checkedLibraryIds.size) return;
+            const touch = Array.from(event.changedTouches).find(touch => touch.identifier === libraryDrag.touchId) || event.touches[0];
+            if (!touch) return;
+            const card = libraryCardAt(touch.clientX, touch.clientY);
+            if (card) selectLibraryCard(Number(card.dataset.patternId));
+        }, {passive:true});
+        document.addEventListener('pointerup', event => {
+            if (libraryDrag && event.pointerId === libraryDrag.id) libraryDrag = null;
+        });
+        document.addEventListener('pointercancel', event => {
+            // iOS may cancel pointer events when native scrolling starts. The
+            // independent touchmove listener still handles finger sweeps.
+            if (libraryDrag && event.pointerId === libraryDrag.id && libraryDrag.type !== 'touch') libraryDrag = null;
+        });
+        document.addEventListener('touchend', () => {libraryDrag = null;}, {passive:true});
+        document.addEventListener('touchcancel', () => {libraryDrag = null;}, {passive:true});
+        function renameLibraryPattern(id, input) {
+            const item = patternLibrary.entries.find(v => v.id === id);
+            if (!item) return;
+            const newName = input.value.trim().slice(0,50) || item.name;
+            input.value = newName;
+            if (item.name !== newName) { item.name = newName; savePatternLibrary(); }
+        }
+        function renderLibraryThumbnail(canvas, item) {
+            const cw = Math.max(20, Math.round(canvas.clientWidth || 156));
+            const ch = Math.max(20, Math.round(canvas.clientHeight || 108));
+            const dpr = Math.min(window.devicePixelRatio || 1, 3);
+            canvas.width = Math.round(cw * dpr);
+            canvas.height = Math.round(ch * dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#e5e5e5';
+            ctx.fillRect(0,0,cw,ch);
+            let minR=64,maxR=-1,minC=64,maxC=-1;
+            for (let i=0;i<4096;i++) if (item.cellMode[i] >= 0) {
+                const r=Math.floor(i/64),c=i%64;
+                minR=Math.min(minR,r);maxR=Math.max(maxR,r);
+                minC=Math.min(minC,c);maxC=Math.max(maxC,c);
+            }
+            if (maxR<0) return;
+            const width=maxC-minC+1,height=maxR-minR+1;
+            const cell=Math.min((cw-12)/width,(ch-12)/height);
+            const left=(cw-width*cell)/2,top=(ch-height*cell)/2;
+            for (let r=minR;r<=maxR;r++) for (let c=minC;c<=maxC;c++) {
+                const i=r*64+c;
+                if (item.cellMode[i]<0) continue;
+                const x=left+(c-minC)*cell,y=top+(r-minR)*cell;
+                ctx.fillStyle='#ffffff';ctx.fillRect(x,y,cell+.04,cell+.04);
+                const p=item.probability[i];
+                if (p>0) {ctx.fillStyle=themeProbabilityColor(p);ctx.fillRect(x,y,cell+.04,cell+.04);}
+                if (cell >= 4) drawEditorMarkSymbols(ctx, x, y, cell, item.cellMode[i]);
+            }
+        }
+        function renderPatternLibrary(focusNameId = null) {
+            if (selectedLibraryId !== null && !selectedLibraryPattern()) selectedLibraryId = null;
+            const ids = new Set(patternLibrary.entries.map(v => v.id));
+            for (const id of checkedLibraryIds) if (!ids.has(id)) checkedLibraryIds.delete(id);
+            patternLibraryGrid.replaceChildren();
+            if (!patternLibrary.entries.length) {
+                const empty = document.createElement('p');
+                empty.className = 'col-span-full text-center text-sm text-gray-400 py-10';
+                empty.textContent = t('library_empty');
+                patternLibraryGrid.appendChild(empty);
+            }
+            for (const item of patternLibrary.entries) {
+                const card = document.createElement('div');
+                card.className = 'pattern-card';
+                card.dataset.patternId = String(item.id);
+                card.setAttribute('role', 'option');
+                card.setAttribute('aria-label', item.name);
+                card.tabIndex = 0;
+                card.addEventListener('click', event => {
+                    if (event.target.closest('.pattern-name') || event.target.closest('.pattern-checkbox')) return;
+                    selectLibraryCard(item.id);
+                });
+                card.addEventListener('keydown', event => {
+                    if (event.target.closest('.pattern-name') || event.target.closest('.pattern-checkbox')) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault(); selectLibraryCard(item.id);
+                    }
+                });
+                const preview = document.createElement('canvas');
+                preview.setAttribute('aria-hidden','true');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox'; checkbox.className = 'pattern-checkbox';
+                checkbox.checked = checkedLibraryIds.has(item.id);
+                checkbox.setAttribute('aria-label', `${item.name} — ${t('library_select_all')}`);
+                checkbox.addEventListener('click', event => event.stopPropagation());
+                checkbox.addEventListener('change', () => toggleLibraryChecked(item.id, checkbox.checked));
+                const name = document.createElement('input');
+                name.className = 'pattern-name'; name.type = 'text'; name.value = item.name;
+                name.maxLength = 50; name.setAttribute('aria-label', item.name);
+                name.addEventListener('click', event => event.stopPropagation());
+                name.addEventListener('pointerdown', event => {event.stopPropagation(); selectLibraryCard(item.id, false);});
+                name.addEventListener('change', () => renameLibraryPattern(item.id, name));
+                name.addEventListener('blur', () => renameLibraryPattern(item.id, name));
+                name.addEventListener('keydown', event => {
+                    event.stopPropagation();
+                    if (event.key === 'Enter') {event.preventDefault(); name.blur();}
+                    if (event.key === 'Escape') {event.preventDefault(); name.value = item.name; name.blur();}
+                });
+                card.append(preview,checkbox,name);
+                patternLibraryGrid.appendChild(card);
+                renderLibraryThumbnail(preview,item);
+                if (focusNameId === item.id) requestAnimationFrame(() => {name.focus();name.select();});
+            }
+            updateLibrarySelectionUI();
+        }
+        function addLibraryPattern() {
+            const num=patternLibrary.nextNameNumber++;
+            const id=patternLibrary.nextId++;
+            const item={id,name:`${t('library_new')} ${num}`, width:64,height:64,
+                cellMode:Array(4096).fill(-1),probability:Array(4096).fill(0.5)};
+            patternLibrary.entries.push(item);
+            if (!savePatternLibrary()) {patternLibrary.entries.pop();return;}
+            selectedLibraryId=id;
+            renderPatternLibrary(id);
+            requestAnimationFrame(()=>{
+                const grid=patternLibraryGrid;
+                const card=Array.from(grid.children).find(e=>e.getAttribute('aria-label')===item.name);
+                if(card) card.scrollIntoView({block:'nearest',inline:'nearest'});
+            });
+        }
+        function applyWorkingPattern(data) {
+            finishEditorStroke();
+            const diff=[];
+            for(let i=0;i<4096;i++) {
+                const beforeMode=editorDocument.cellMode[i],beforeProb=editorDocument.probability[i];
+                const afterMode=data.cellMode[i],afterProb=data.probability[i];
+                if(beforeMode===afterMode && beforeProb===afterProb) continue;
+                diff.push({idx:i,beforeMode,beforeProb,afterMode,afterProb});
+            }
+            if(!diff.length) return;
+            for (const ch of diff) {
+                editorDocument.cellMode[ch.idx]=ch.afterMode;
+                editorDocument.probability[ch.idx]=ch.afterProb;
+            }
+            editor.undo.push(diff);
+            if(editor.undo.length>100) editor.undo.shift();
+            editor.redo.length=0;
+            updateEditorControls();
+            scheduleCanvasDraw();
+            saveEditorDocument();
+        }
+        function loadSelectedLibraryPattern() {
+            const item=selectedLibraryPattern();if(!item)return;
+            showAppDialog(t('library_load_title'),t('library_load_message'),{
+                confirmText:t('library_load'),onConfirm:()=>{
+                    applyWorkingPattern(item);
+                    closePatternLibrary();
+                }
+            });
+        }
+        function overwriteSelectedLibraryPattern() {
+            const item = selectedLibraryPattern();
+            if (!item) return;
+            const performOverwrite = () => {
+                const copy = snapshotWorkingPattern();
+                const oldMode = item.cellMode, oldProb = item.probability;
+                item.cellMode = copy.cellMode; item.probability = copy.probability;
+                if (!savePatternLibrary()) {item.cellMode = oldMode; item.probability = oldProb;}
+                renderPatternLibrary();
+            };
+            // An empty saved pattern has nothing that could be lost.
+            if (isEmptyLibraryPattern(item)) { performOverwrite(); return; }
+            showAppDialog(t('library_overwrite_title'), t('library_overwrite_message'), {
+                confirmText: t('library_overwrite'), onConfirm: performOverwrite
+            });
+        }
+        function deleteSelectedLibraryPattern() {
+            const targets = selectedLibraryBatch();
+            if (!targets.length) return;
+            const performDelete = () => {
+                const ids = new Set(targets.map(v => v.id));
+                const prior = patternLibrary.entries;
+                patternLibrary.entries = prior.filter(v => !ids.has(v.id));
+                if (!savePatternLibrary()) {patternLibrary.entries = prior; return;}
+                for (const id of ids) checkedLibraryIds.delete(id);
+                if (ids.has(selectedLibraryId)) selectedLibraryId = null;
+                renderPatternLibrary();
+            };
+            // Skip confirmation only when EVERY target contains zero board cells.
+            if (targets.every(isEmptyLibraryPattern)) { performDelete(); return; }
+            const count = targets.length;
+            const message = count === 1 ? t('library_delete_message')
+                : t('library_delete_many_message').replace('{count}', String(count));
+            showAppDialog(t('library_delete_title'), message, {
+                confirmText: t('library_delete'), onConfirm: performDelete
+            });
+        }
+        function importLibraryPatterns() {libraryFileInput.value = ''; libraryFileInput.click();}
+        async function handleLibraryPatternImport(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+            const additions = [];
+            let failed = 0;
+            const originalNextId = patternLibrary.nextId;
+            try {
+                for (const file of files) {
+                    try {
+                        if (file.size > 1024*1024) throw Error('File too large');
+                        const data = JSON.parse(await file.text());
+                        if (!validPatternData(data)) throw Error('Invalid pattern');
+                        const name = (file.name || '').replace(/\.json$/i,'').trim().slice(0,50) || t('library_new');
+                        additions.push({id:patternLibrary.nextId++,name,width:64,height:64,
+                            cellMode:data.cellMode.slice(),probability:data.probability.slice()});
+                    } catch(error) { failed++; console.warn('Pattern import skipped:',file.name,error); }
+                }
+                if (additions.length) {
+                    patternLibrary.entries.push(...additions);
+                    if (!savePatternLibrary()) {
+                        patternLibrary.entries.splice(-additions.length, additions.length);
+                        patternLibrary.nextId = originalNextId;
+                        return;
+                    }
+                    selectedLibraryId = additions[additions.length-1].id;
+                    renderPatternLibrary();
+                }
+                if (failed) {
+                    if (!additions.length) showAppDialog(t('library_invalid_title'),t('library_invalid_message'));
+                    else showAppDialog(t('library_invalid_title'),t('library_import_partial')
+                        .replace('{success}',String(additions.length)).replace('{failed}',String(failed)));
+                }
+            } finally {libraryFileInput.value='';}
+        }
+        function safePatternFilename(name) {
+            let cleaned = String(name || '').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').trim()
+                .replace(/[.\s]+$/g,'').slice(0,100);
+            if (!cleaned || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(cleaned)) cleaned = 'pattern' + (cleaned ? '_' + cleaned : '');
+            return cleaned;
+        }
+        function exportLibraryPatterns() {
+            const targets = selectedLibraryBatch();
+            if (!targets.length) return;
+            const usedNames = new Set();
+            // Each selected library entry is exported as its own JSON, never
+            // the auto-saved working canvas. Duplicate names get a suffix.
+            for (const item of targets) {
+                const stem = safePatternFilename(item.name);
+                let filename = stem + '.json', n = 2;
+                while (usedNames.has(filename.toLowerCase())) filename = `${stem} (${n++}).json`;
+                usedNames.add(filename.toLowerCase());
+                const data = {version:1,width:64,height:64,
+                    cellMode:item.cellMode,probability:item.probability};
+                const blob = new Blob([JSON.stringify(data)],{type:'application/json'});
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href=url; anchor.download=filename;
+                document.body.appendChild(anchor);
+                anchor.click(); anchor.remove();
+                setTimeout(()=>URL.revokeObjectURL(url),30000);
+            }
+        }
 
-        let pointerDownTarget = null;
-        let pointerDownButton = 0; // 0: Left, 2: Right
-        let pointerType = 'mouse'; // 默认为 mouse
+        // --- Custom pattern editor (phase 1: no puzzle generation). ---
+        function loadEditorDocument() {
+            try {
+                const raw = localStorage.getItem(EDITOR_STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (data.version !== 1 || data.width !== 64 || data.height !== 64 ||
+                    !Array.isArray(data.cellMode) || !Array.isArray(data.probability) ||
+                    data.cellMode.length !== 4096 || data.probability.length !== 4096) return;
+                editorDocument.cellMode = data.cellMode.map(v =>
+                    Number.isInteger(v) && (v === -1 || (v >= 0 && v <= 3)) ? v : -1);
+                editorDocument.probability = data.probability.map(v =>
+                    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5);
+                if (Number.isFinite(data.brushProbability)) {
+                    editor.brushProbability = Math.round(Math.max(0, Math.min(1, data.brushProbability)) * 20) / 20;
+                }
+                editor.markMode = data.markMode === true;
+                editor.markTarget = data.markTarget === 'hideNumber' ? 'hideNumber' : 'reveal';
+            } catch (err) { console.warn('Cannot read saved pattern:', err); }
+        }
+        function saveEditorDocument() {
+            if (editor.saveTimer !== null) {
+                clearTimeout(editor.saveTimer);
+                editor.saveTimer = null;
+            }
+            try {
+                localStorage.setItem(EDITOR_STORAGE_KEY, JSON.stringify({
+                    version: 1, width: 64, height: 64,
+                    cellMode: editorDocument.cellMode,
+                    probability: editorDocument.probability,
+                    brushProbability: editor.brushProbability,
+                    markMode: editor.markMode,
+                    markTarget: editor.markTarget
+                }));
+                editor.saved = true;
+            } catch (err) {
+                editor.saved = false;
+                console.warn('Cannot save custom pattern:', err);
+            }
+        }
+        function scheduleEditorSave() {
+            if (editor.saveTimer !== null) clearTimeout(editor.saveTimer);
+            editor.saveTimer = setTimeout(saveEditorDocument, 220);
+        }
+        // Each mark remains distinguishable when both bits are present:
+        // a centered X (hide number), plus a centered black dot (reveal).
+        function drawEditorMarkSymbols(ctx, x, y, size, mode) {
+            if (mode < 0) return;
+            const cx = x + size / 2, cy = y + size / 2;
+            if (mode & 2) {
+                const half = size * 0.23;
+                ctx.save();
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = Math.max(1, size * 0.07);
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx-half,cy-half);ctx.lineTo(cx+half,cy+half);
+                ctx.moveTo(cx+half,cy-half);ctx.lineTo(cx-half,cy+half);
+                ctx.stroke();
+                ctx.restore();
+            }
+            if (mode & 1) {
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(cx,cy,Math.max(1.5,size*0.105),0,Math.PI*2);
+                ctx.fill();
+            }
+        }
+        function paintEditorCanvas(ctx, g) {
+            const {w, h, c0, c1, r0, r1, cellSize, left, top, canvasW, canvasH, dpr} = g;
+            // The backing canvas stays screen-sized; every zoom frame re-rasterizes at DPR.
+            // Absent cells are the same neutral grey as a game's empty mark,
+            // distinct from every teal probability brush value.
+            ctx.fillStyle = '#e5e5e5';
+            ctx.fillRect(left, top, w * cellSize, h * cellSize);
+            for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+                const i = r * w + c;
+                const mode = editorDocument.cellMode[i];
+                if (mode < 0) continue;
+                const x = left + c * cellSize, y = top + r * cellSize;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x, y, cellSize + 0.08, cellSize + 0.08);
+                const prob = editorDocument.probability[i];
+                if (prob > 0) {
+                    ctx.fillStyle = themeProbabilityColor(prob);
+                    ctx.fillRect(x, y, cellSize + 0.08, cellSize + 0.08);
+                }
+                drawEditorMarkSymbols(ctx, x, y, cellSize, mode);
+            }
+            // Match the crisp, uniform physical-pixel grid of the game renderer.
+            const pxWidth = Math.max(1, Math.round(dpr));
+            const snap = v => (Math.round(v * dpr) + (pxWidth % 2 ? 0.5 : 0)) / dpr;
+            ctx.beginPath();
+            ctx.strokeStyle = themePalette.editorGrid;
+            ctx.lineWidth = pxWidth / dpr;
+            const ymin = Math.max(0, top), ymax = Math.min(canvasH, top + h * cellSize);
+            const xmin = Math.max(0, left), xmax = Math.min(canvasW, left + w * cellSize);
+            for (let c = Math.max(1, c0); c <= Math.min(w - 1, c1 + 1); c++) {
+                const x = snap(left + c * cellSize);
+                ctx.moveTo(x, ymin); ctx.lineTo(x, ymax);
+            }
+            for (let r = Math.max(1, r0); r <= Math.min(h - 1, r1 + 1); r++) {
+                const y = snap(top + r * cellSize);
+                ctx.moveTo(xmin, y); ctx.lineTo(xmax, y);
+            }
+            ctx.stroke();
+            ctx.lineWidth = 1.6; ctx.strokeStyle = themePalette.outer;
+            ctx.strokeRect(left, top, w * cellSize, h * cellSize);
+        }
+        function updateEditorControls() {
+            const controls = document.getElementById('editor-controls');
+            controls.classList.toggle('editor-brush', editor.tool === 'brush');
+            controls.classList.toggle('editor-mark-mode', editor.markMode);
+            document.getElementById('editor-mark-mode').checked = editor.markMode;
+            for (const [target, buttonId] of [
+                ['reveal', 'editor-mark-reveal'],
+                ['hideNumber', 'editor-mark-hide-number']
+            ]) {
+                const selected = editor.markTarget === target;
+                const button = document.getElementById(buttonId);
+                button.classList.toggle('editor-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+            }
+            for (const tool of ['brush', 'eraser']) {
+                document.getElementById('editor-' + tool).classList.toggle('editor-selected', editor.tool === tool);
+            }
+            document.getElementById('editor-undo').disabled = editor.undo.length === 0;
+            document.getElementById('editor-redo').disabled = editor.redo.length === 0;
+            document.getElementById('editor-opacity').value = String(editor.brushProbability);
+            document.getElementById('editor-opacity-value').textContent =
+                Math.round(editor.brushProbability * 100) + '%';
+        }
+        function selectEditorTool(tool) {
+            if (!['brush', 'eraser'].includes(tool)) return;
+            finishEditorStroke();
+            editor.tool = tool;
+            updateEditorControls();
+        }
+        function setEditorMarkMode(checked) {
+            finishEditorStroke();
+            editor.markMode = !!checked;
+            updateEditorControls();
+            saveEditorDocument();
+        }
+        function selectEditorMarkTarget(target) {
+            if (target !== 'reveal' && target !== 'hideNumber') return;
+            finishEditorStroke();
+            editor.markTarget = target;
+            updateEditorControls();
+            saveEditorDocument();
+        }
+        function setEditorBrushProbability(value) {
+            editor.brushProbability = Math.round(Math.max(0, Math.min(1, Number(value))) * 20) / 20;
+            updateEditorControls();
+            scheduleEditorSave();
+        }
+        function openCustomEditor() {
+            if (editorMode) return;
+            if (!settingsModal.classList.contains('hidden')) toggleSettings();
+            resetMouseDrag();
+            resetTouchDrag();
+            activeTouches.clear();
+            pinchGesture = null;
+            suppressSingleUntilRelease = false;
+            editorPreviousTitle = statusTextEl.textContent;
+            editorPreviousTitleClass = statusTextEl.className;
+            if (gameState.isPlaying) { stopTimer(); editorPauseStarted = Date.now(); }
+            else editorPauseStarted = 0;
+            editorMode = true;
+            document.body.classList.add('editing');
+            document.getElementById('game-main').classList.add('editor-mode');
+            statusTextEl.textContent = t('editor_title');
+            statusTextEl.className = 'text-lg font-bold text-teal-800 tracking-tight';
+            updateEditorControls();
+            updateEditorChrome();
+            resetBoardView();
+            requestAnimationFrame(layoutGridToFit);
+        }
+        function closeCustomEditor() {
+            if (!editorMode) return;
+            if (libraryIsOpen()) closePatternLibrary();
+            finishEditorStroke();
+            saveEditorDocument();
+            editorMode = false;
+            document.body.classList.remove('editing');
+            document.getElementById('game-main').classList.remove('editor-mode');
+            statusTextEl.textContent = editorPreviousTitle;
+            statusTextEl.className = editorPreviousTitleClass;
+            if (editorPauseStarted && gameState.isPlaying) {
+                gameState.startTime += Date.now() - editorPauseStarted;
+                startTimer();
+                timerEl.textContent = formatTime(Math.floor((Date.now() - gameState.startTime) / 1000));
+            }
+            editorPauseStarted = 0;
+            updateEditorChrome();
+            resetBoardView();
+            requestAnimationFrame(layoutGridToFit);
+        }
+        function editorPaintCell(idx) {
+            if (!editor.stroke || idx === null) return;
+            const beforeMode = editorDocument.cellMode[idx];
+            const beforeProb = editorDocument.probability[idx];
+            if (editor.stroke.markMode && beforeMode === -1) return;
+            const markBit = editor.stroke.markTarget === 'hideNumber' ? 2 : 1;
+            const afterMode = editor.stroke.markMode
+                ? (editor.stroke.tool === 'brush' ? beforeMode | markBit : beforeMode & ~markBit)
+                : (editor.stroke.tool === 'brush' ? 0 : -1);
+            const afterProb = !editor.stroke.markMode && editor.stroke.tool === 'brush'
+                ? editor.stroke.probability : beforeProb;
+            if (beforeMode === afterMode && beforeProb === afterProb) return;
+            if (!editor.stroke.changes.has(idx)) {
+                editor.stroke.changes.set(idx, {idx, beforeMode, beforeProb});
+            }
+            editorDocument.cellMode[idx] = afterMode;
+            editorDocument.probability[idx] = afterProb;
+            scheduleCanvasDraw();
+        }
+        function editorPaintAlong(x0, y0, x1, y1) {
+            forEachCellAlongSegment(x0, y0, x1, y1, (x, y) => editorPaintCell(cellAtPoint(x, y)));
+        }
+        function startEditorStroke(e) {
+            if (!editorMode || editor.stroke) return;
+            const idx = cellAtPoint(e.clientX, e.clientY);
+            if (idx === null) return;
+            const rightClick = e.pointerType === 'mouse' && e.button === 2;
+            const strokeTool = rightClick ? (editor.tool === 'brush' ? 'eraser' : 'brush') : editor.tool;
+            editor.stroke = {
+                pointerId: e.pointerId, button: e.button,
+                tool: strokeTool, probability: editor.brushProbability,
+                markMode: editor.markMode, markTarget: editor.markTarget,
+                changes: new Map(), lastX: e.clientX, lastY: e.clientY
+            };
+            try { boardCanvas.setPointerCapture(e.pointerId); } catch (_) {}
+            editorPaintCell(idx);
+        }
+        function moveEditorStroke(e) {
+            if (!editorMode || !editor.stroke || editor.stroke.pointerId !== e.pointerId) return;
+            editorPaintAlong(editor.stroke.lastX, editor.stroke.lastY, e.clientX, e.clientY);
+            editor.stroke.lastX = e.clientX;
+            editor.stroke.lastY = e.clientY;
+        }
+        function finishEditorStroke(e = null) {
+            if (!editor.stroke || (e && editor.stroke.pointerId !== e.pointerId)) return;
+            if (e) moveEditorStroke(e);
+            const diff = [];
+            for (const ch of editor.stroke.changes.values()) {
+                const afterMode = editorDocument.cellMode[ch.idx];
+                const afterProb = editorDocument.probability[ch.idx];
+                if (ch.beforeMode !== afterMode || ch.beforeProb !== afterProb) {
+                    diff.push({...ch, afterMode, afterProb});
+                }
+            }
+            editor.stroke = null;
+            if (!diff.length) return;
+            editor.undo.push(diff);
+            if (editor.undo.length > 100) editor.undo.shift();
+            editor.redo.length = 0;
+            updateEditorControls();
+            saveEditorDocument();
+        }
+        function cancelEditorStroke() {
+            if (!editor.stroke) return;
+            for (const change of editor.stroke.changes.values()) {
+                editorDocument.cellMode[change.idx] = change.beforeMode;
+                editorDocument.probability[change.idx] = change.beforeProb;
+            }
+            editor.stroke = null;
+            scheduleCanvasDraw();
+        }
+        function applyEditorHistory(diff, backwards) {
+            for (const ch of diff) {
+                editorDocument.cellMode[ch.idx] = backwards ? ch.beforeMode : ch.afterMode;
+                editorDocument.probability[ch.idx] = backwards ? ch.beforeProb : ch.afterProb;
+            }
+            updateEditorControls();
+            scheduleCanvasDraw();
+            saveEditorDocument();
+        }
+        function editorUndo() {
+            if (!editorMode) return;
+            finishEditorStroke();
+            if (!editor.undo.length) return;
+            const diff = editor.undo.pop();
+            editor.redo.push(diff);
+            applyEditorHistory(diff, true);
+        }
+        function editorRedo() {
+            if (!editorMode) return;
+            finishEditorStroke();
+            if (!editor.redo.length) return;
+            const diff = editor.redo.pop();
+            editor.undo.push(diff);
+            applyEditorHistory(diff, false);
+        }
+        function clearEditorCanvas() {
+            if (!editorMode) return;
+            finishEditorStroke();
+            const diff = [];
+            for (let i = 0; i < 4096; i++) {
+                const beforeMode = editorDocument.cellMode[i];
+                const beforeProb = editorDocument.probability[i];
+                if (beforeMode !== -1 || beforeProb !== 0.5) {
+                    diff.push({idx: i, beforeMode, beforeProb, afterMode: -1, afterProb: 0.5});
+                }
+                editorDocument.cellMode[i] = -1;
+                editorDocument.probability[i] = 0.5;
+            }
+            if (diff.length) {
+                editor.undo.push(diff);
+                if (editor.undo.length > 100) editor.undo.shift();
+                editor.redo.length = 0;
+            }
+            updateEditorControls();
+            scheduleCanvasDraw();
+            saveEditorDocument();
+        }
 
-        // --- 桌面端鼠标批量操作 ---
-        let mouseDrag = {
-            active: false,
-            pointerId: null,
-            button: 0,
-            sourceState: 0,
-            targetState: 0,
-            visited: new Set()
+        // --- Input: single source of truth in screen coordinates (Canvas hit testing). ---
+        const DRAG_ARM_DELAY = 120;
+        const DRAG_MOVE_THRESHOLD = 8;
+        const QUICK_TAP_RETURN_TOLERANCE = 16;
+        const mouseDrag = {
+            active: false, pointerId: null, button: 0,
+            sourceState: 0, targetState: 0, visited: new Set(), lastPoint: null
         };
-
         function resetMouseDrag() {
             mouseDrag.active = false;
             mouseDrag.pointerId = null;
             mouseDrag.visited.clear();
+            mouseDrag.lastPoint = null;
         }
-
-        function applyMouseDragToCell(cellEl) {
-            if (!mouseDrag.active || !gameState.isPlaying || !cellEl) return;
-
-            const idx = parseInt(cellEl.dataset.index, 10);
-            if (mouseDrag.visited.has(idx)) return;
-            mouseDrag.visited.add(idx);
-
-            const state = gameState.playerGrid[idx];
-
-            // 本次按下只处理与起始格原状态相同的格子。
-            if (state !== mouseDrag.sourceState) return;
-
-            const newState = mouseDrag.targetState;
-            if (newState === state) return;
-
-            gameState.playerGrid[idx] = newState;
-
-            if (state === 1) gameState.currentFilled--;
-            if (newState === 1) gameState.currentFilled++;
-
-            updateAllCellsVisuals();
-            updateUI();
-            checkWin();
-        }
-
-        function applyMouseDragAtPoint(clientX, clientY) {
-            const el = document.elementFromPoint(clientX, clientY);
-            const cellEl = el && el.closest ? el.closest('.cell') : null;
-            if (!cellEl || !gridEl.contains(cellEl)) return;
-            applyMouseDragToCell(cellEl);
-        }
-
-        function handleGlobalPointerMove(e) {
-            if (!mouseDrag.active || e.pointerId !== mouseDrag.pointerId) return;
-
-            const requiredButtonMask = mouseDrag.button === 2 ? 2 : 1;
-            if ((e.buttons & requiredButtonMask) === 0) {
-                resetMouseDrag();
-                pointerDownTarget = null;
-                return;
-            }
-
-            applyMouseDragAtPoint(e.clientX, e.clientY);
-        }
-
-        // --- 移动端单指滑动标记（带双指缩放窗口期） ---
-        const DRAG_ARM_DELAY = 120;       // 给第二根手指的“窗口期”(ms)
-        const DRAG_MOVE_THRESHOLD = 8;    // 超过多少像素算“开始拖动”
-
-        let activeTouchIds = new Set();
-
-        let touchDrag = {
-            id: null,
-            armed: false,        // 窗口期结束后才会 armed
-            dragging: false,     // 是否已进入拖动批量标记
-            startX: 0,
-            startY: 0,
-            startTime: 0,
-            action: 3,           // 3=标记空白；也可以实现擦除 0
-            visited: new Set(),  // 走过的格子，避免重复处理
-            armTimer: null,
-            rafPending: false
+        const activeTouches = new Map();
+        let suppressSingleUntilRelease = false;
+        let pinchGesture = null;
+        const touchDrag = {
+            id: null, startCell: null, armed: false, dragging: false,
+            startX: 0, startY: 0, lastX: 0, lastY: 0,
+            action: 3, visited: new Set(), armTimer: null,
+            maxDistance: 0, pendingPoints: []
         };
-
-        function resetTouchDrag() {
-            if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
-            touchDrag.id = null;
-            touchDrag.armed = false;
-            touchDrag.dragging = false;
-            touchDrag.visited.clear();
-            touchDrag.armTimer = null;
-            touchDrag.rafPending = false;
-        }
-
+        let refreshPending = false;
         function scheduleFullRefresh() {
-            if (touchDrag.rafPending) return;
-            touchDrag.rafPending = true;
+            if (refreshPending) return;
+            refreshPending = true;
             requestAnimationFrame(() => {
-                touchDrag.rafPending = false;
+                refreshPending = false;
                 updateAllCellsVisuals();
                 updateUI();
                 checkWin();
             });
         }
-
-        function applyDragMarkAtPoint(clientX, clientY) {
-            const el = document.elementFromPoint(clientX, clientY);
-            const cellEl = el && el.closest ? el.closest('.cell') : null;
-            if (!cellEl) return;
-
-            const idx = parseInt(cellEl.dataset.index, 10);
-            if (touchDrag.visited.has(idx)) return;
-            touchDrag.visited.add(idx);
-
-            const state = gameState.playerGrid[idx];
-
-            // 拖动只处理 0 <-> 3，避免误伤已填色(1)
-            if (state === 1) return;
-
-            const newState = touchDrag.action; // 3 或 0
-            if (newState === state) return;
-
-            gameState.playerGrid[idx] = newState;
-            // 这里不改 currentFilled，因为我们不动 state=1
-
+        function resetTouchDrag() {
+            if (touchDrag.armTimer !== null) clearTimeout(touchDrag.armTimer);
+            touchDrag.armTimer = null;
+            touchDrag.id = null;
+            touchDrag.startCell = null;
+            touchDrag.armed = false;
+            touchDrag.dragging = false;
+            touchDrag.maxDistance = 0;
+            touchDrag.pendingPoints.length = 0;
+            touchDrag.visited.clear();
+        }
+        function cellAtPoint(x, y) {
+            const g = canvasGeometry();
+            // Exclude modal controls and any pointer under visible top-level overlays.
+            const element = document.elementFromPoint(x, y);
+            if (element !== boardCanvas) return null;
+            const c = Math.floor((x - g.screen.left - g.left) / g.cellSize);
+            const r = Math.floor((y - g.screen.top - g.top) / g.cellSize);
+            const { width, height } = boardDimensions();
+            if (!(c >= 0 && c < width && r >= 0 && r < height)) return null;
+            const i = r * width + c;
+            if (!editorMode && gameState.playableMask && !gameState.playableMask[i]) return null;
+            return i;
+        }
+        function forEachCellAlongSegment(x0, y0, x1, y1, fn) {
+            const stepSize = Math.max(2, boardCell * boardView.zoom * 0.45);
+            const count = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / stepSize));
+            for (let k = 1; k <= count; k++) {
+                const f = k / count;
+                fn(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f);
+            }
+        }
+        function applyMouseDragToCell(idx) {
+            if (!mouseDrag.active || !gameState.isPlaying || idx === null || isRevealedGameCell(idx)) return;
+            if (mouseDrag.visited.has(idx)) return;
+            mouseDrag.visited.add(idx);
+            const old = gameState.playerGrid[idx];
+            if (old !== mouseDrag.sourceState || old === mouseDrag.targetState) return;
+            gameState.playerGrid[idx] = mouseDrag.targetState;
+            if (old === 1) gameState.currentFilled--;
+            if (mouseDrag.targetState === 1) gameState.currentFilled++;
             scheduleFullRefresh();
         }
-
-        function handlePointerDown(e) {
+        function applyDragMarkAtPoint(x, y) {
             if (!gameState.isPlaying) return;
-
-            pointerDownTarget = e.currentTarget;
-            pointerDownButton = e.button;
-            pointerType = e.pointerType || 'mouse';
-
-            // 桌面端：按下时锁定起始状态，并在拖动过程中只处理同状态格子。
-            if (pointerType === 'mouse' && (e.button === 0 || e.button === 2)) {
-                const idx = parseInt(pointerDownTarget.dataset.index, 10);
-                const sourceState = gameState.playerGrid[idx];
-
-                mouseDrag.active = true;
-                mouseDrag.pointerId = e.pointerId;
-                mouseDrag.button = e.button;
-                mouseDrag.sourceState = sourceState;
-                mouseDrag.visited.clear();
-
-                if (sourceState === 0) {
-                    mouseDrag.targetState = e.button === 2 ? 3 : 1;
-                } else {
-                    // 无论左右键，从填色或空白开始都执行取消。
-                    mouseDrag.targetState = 0;
-                }
-
-                applyMouseDragToCell(pointerDownTarget);
-                return;
+            const idx = cellAtPoint(x, y);
+            if (idx === null || isRevealedGameCell(idx) || touchDrag.visited.has(idx)) return;
+            touchDrag.visited.add(idx);
+            const state = gameState.playerGrid[idx];
+            if (state === 1 || state === touchDrag.action) return;
+            gameState.playerGrid[idx] = touchDrag.action;
+            scheduleFullRefresh();
+        }
+        function beginTouchMarkDrag() {
+            if (touchDrag.dragging || touchDrag.startCell === null || !gameState.isPlaying) return;
+            touchDrag.dragging = true;
+            touchDrag.lastX = touchDrag.startX;
+            touchDrag.lastY = touchDrag.startY;
+            applyDragMarkAtPoint(touchDrag.startX, touchDrag.startY);
+            for (const pt of touchDrag.pendingPoints) {
+                forEachCellAlongSegment(touchDrag.lastX, touchDrag.lastY, pt.x, pt.y, applyDragMarkAtPoint);
+                touchDrag.lastX = pt.x;
+                touchDrag.lastY = pt.y;
             }
+            touchDrag.pendingPoints.length = 0;
+        }
+        function recordTouchMovement(x, y) {
+            const distance = Math.hypot(x - touchDrag.startX, y - touchDrag.startY);
+            touchDrag.maxDistance = Math.max(touchDrag.maxDistance, distance);
+            if (!touchDrag.dragging) touchDrag.pendingPoints.push({ x, y });
+        }
+        function touchMovementIsDrag(x, y) {
+            if (touchDrag.maxDistance < DRAG_MOVE_THRESHOLD) return false;
+            const nowCell = cellAtPoint(x, y);
+            return touchDrag.maxDistance >= QUICK_TAP_RETURN_TOLERANCE ||
+                (nowCell !== null && nowCell !== touchDrag.startCell);
+        }
+        function handlePointerDown(e) {
+            if (e.pointerType !== 'mouse' || !gameState.isPlaying) return;
+            if (e.button !== 0 && e.button !== 2) return;
+            const idx = cellAtPoint(e.clientX, e.clientY);
+            if (idx === null || isRevealedGameCell(idx)) return;
+            const state = gameState.playerGrid[idx];
+            mouseDrag.active = true;
+            mouseDrag.pointerId = e.pointerId;
+            mouseDrag.button = e.button;
+            mouseDrag.sourceState = state;
+            mouseDrag.targetState = state === 0 ? (e.button === 2 ? 3 : 1) : 0;
+            mouseDrag.visited.clear();
+            mouseDrag.lastPoint = { x: e.clientX, y: e.clientY };
+            applyMouseDragToCell(idx);
+        }
+        function gesturePair() {
+            const pair = Array.from(activeTouches.values()).slice(0, 2);
+            if (pair.length < 2) return null;
+            const midX = (pair[0].x + pair[1].x) / 2;
+            const midY = (pair[0].y + pair[1].y) / 2;
+            const distance = Math.max(1, Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y));
+            return { midX, midY, distance };
+        }
+        function beginPinch() {
+            cancelBoardReturnAnimation();
+            if (editorMode) cancelEditorStroke(); // a second finger never leaves an accidental dot
+            resetTouchDrag();
+            suppressSingleUntilRelease = true;
+            const pair = gesturePair();
+            if (!pair) return;
+            const rect = gridViewportEl.getBoundingClientRect();
+            const originX = rect.left + rect.width / 2;
+            const originY = rect.top + rect.height / 2;
+            pinchGesture = {
+                startDistance: pair.distance,
+                startZoom: boardView.zoom,
+                anchorX: (pair.midX - originX - boardView.panX) / boardView.zoom,
+                anchorY: (pair.midY - originY - boardView.panY) / boardView.zoom
+            };
+        }
+        function updatePinch() {
+            if (!pinchGesture) return;
+            const pair = gesturePair();
+            if (!pair) return;
+            const rect = gridViewportEl.getBoundingClientRect();
+            boardView.zoom = Math.max(BOARD_MIN_ZOOM, Math.min(BOARD_MAX_ZOOM,
+                pinchGesture.startZoom * pair.distance / pinchGesture.startDistance));
+            boardView.panX = pair.midX - (rect.left + rect.width / 2) - pinchGesture.anchorX * boardView.zoom;
+            boardView.panY = pair.midY - (rect.top + rect.height / 2) - pinchGesture.anchorY * boardView.zoom;
+            applyBoardView();
+        }
+        // Wheel/trackpad zoom: use the same view state and focal-point math as touch pinch.
+        // Only the Canvas receives this listener, so sliders and dropdowns still scroll normally.
+        function handleBoardWheel(e) {
+            e.preventDefault();
+            if (!Number.isFinite(e.deltaY) || e.deltaY === 0) return;
+            // deltaMode: pixels (0), lines (1), pages (2).
+            const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? gridViewportEl.clientHeight : 1;
+            const delta = Math.max(-600, Math.min(600, e.deltaY * unit));
+            const oldZoom = boardView.zoom;
+            const nextZoom = Math.max(BOARD_MIN_ZOOM, Math.min(BOARD_MAX_ZOOM,
+                oldZoom * Math.exp(-delta * 0.0015)));
+            if (Math.abs(nextZoom - oldZoom) < 1e-8) return;
+            cancelBoardReturnAnimation();
 
-            // 仅移动端：准备进入“单指滑动标记”
-            if (pointerType === 'touch' || pointerType === 'pen') {
-                // 记录第一指
-                touchDrag.id = e.pointerId;
-                touchDrag.startX = e.clientX;
-                touchDrag.startY = e.clientY;
-                touchDrag.startTime = Date.now();
-                touchDrag.dragging = false;
-                touchDrag.armed = false;
-                touchDrag.visited.clear();
-
-                // 小增强：从 3 开始拖动 => 当作“擦除(0)”，否则“标记(3)”
-                const idx = parseInt(pointerDownTarget.dataset.index, 10);
-                touchDrag.action = (gameState.playerGrid[idx] === 3) ? 0 : 3;
-
-                if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
-                touchDrag.armTimer = setTimeout(() => {
-                    // 窗口期结束：如果仍只有一根手指，并且这根手指还在
-                    if (touchDrag.id === e.pointerId && activeTouchIds.size === 1) {
-                        touchDrag.armed = true;
-                    }
-                }, DRAG_ARM_DELAY);
-            }
+            const rect = gridViewportEl.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            // Preserve the board-space point under the cursor unless pan limits
+            // require a smaller-than-viewport board to remain centered.
+            const anchorX = (e.clientX - cx - boardView.panX) / oldZoom;
+            const anchorY = (e.clientY - cy - boardView.panY) / oldZoom;
+            boardView.zoom = nextZoom;
+            boardView.panX = e.clientX - cx - anchorX * nextZoom;
+            boardView.panY = e.clientY - cy - anchorY * nextZoom;
+            applyBoardView();
         }
 
+        function handleViewportTouchDown(e) {
+            if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+            e.preventDefault();
+            activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            try { boardCanvas.setPointerCapture(e.pointerId); } catch (_) { /* Safari fallback */ }
+            if (activeTouches.size >= 2) {
+                if (activeTouches.size === 2) beginPinch();
+                return;
+            }
+            if (suppressSingleUntilRelease) return;
+            if (editorMode) { startEditorStroke(e); return; }
+            if (!gameState.isPlaying) return;
+            resetTouchDrag();
+            touchDrag.id = e.pointerId;
+            touchDrag.startX = touchDrag.lastX = e.clientX;
+            touchDrag.startY = touchDrag.lastY = e.clientY;
+            touchDrag.maxDistance = 0;
+            touchDrag.pendingPoints.length = 0;
+            touchDrag.startCell = cellAtPoint(e.clientX, e.clientY);
+            if (touchDrag.startCell !== null && isRevealedGameCell(touchDrag.startCell))
+                touchDrag.startCell = null;
+            if (touchDrag.startCell !== null) {
+                touchDrag.action = gameState.playerGrid[touchDrag.startCell] === 3 ? 0 : 3;
+            }
+            touchDrag.armTimer = setTimeout(() => {
+                touchDrag.armTimer = null;
+                if (activeTouches.size === 1 && touchDrag.id === e.pointerId && !suppressSingleUntilRelease) {
+                    touchDrag.armed = true;
+                    const last = touchDrag.pendingPoints[touchDrag.pendingPoints.length - 1];
+                    if (last && touchMovementIsDrag(last.x, last.y)) beginTouchMarkDrag();
+                }
+            }, DRAG_ARM_DELAY);
+        }
+        function handleGlobalPointerMove(e) {
+            if (activeTouches.has(e.pointerId)) {
+                activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                if (activeTouches.size >= 2) updatePinch();
+                else if (editorMode) { if (!suppressSingleUntilRelease) moveEditorStroke(e); }
+                else if (touchDrag.id === e.pointerId && !suppressSingleUntilRelease && gameState.isPlaying) {
+                    const wasDragging = touchDrag.dragging;
+                    recordTouchMovement(e.clientX, e.clientY);
+                    if (!wasDragging && touchDrag.armed && touchMovementIsDrag(e.clientX, e.clientY)) {
+                        beginTouchMarkDrag();
+                    } else if (wasDragging) {
+                        forEachCellAlongSegment(touchDrag.lastX, touchDrag.lastY, e.clientX, e.clientY, applyDragMarkAtPoint);
+                        touchDrag.lastX = e.clientX;
+                        touchDrag.lastY = e.clientY;
+                    }
+                }
+                return;
+            }
+            if (editorMode) {
+                if (editor.stroke && editor.stroke.pointerId === e.pointerId) {
+                    const heldButton = editor.stroke.button === 2 ? 2 : 1;
+                    if ((e.buttons & heldButton) === 0) finishEditorStroke();
+                    else moveEditorStroke(e);
+                }
+                return;
+            }
+            if (!mouseDrag.active || e.pointerId !== mouseDrag.pointerId) return;
+            const mask = mouseDrag.button === 2 ? 2 : 1;
+            if ((e.buttons & mask) === 0) { resetMouseDrag(); return; }
+            const last = mouseDrag.lastPoint;
+            if (last) forEachCellAlongSegment(last.x, last.y, e.clientX, e.clientY,
+                (x, y) => applyMouseDragToCell(cellAtPoint(x, y)));
+            else applyMouseDragToCell(cellAtPoint(e.clientX, e.clientY));
+            mouseDrag.lastPoint = { x: e.clientX, y: e.clientY };
+        }
         function handleGlobalPointerUp(e) {
-            // 鼠标在按下时已经处理起点，抬起时只结束本次批量操作。
-            if (mouseDrag.active && e.pointerId === mouseDrag.pointerId) {
-                resetMouseDrag();
-                pointerDownTarget = null;
+            if (editorMode) {
+                if (activeTouches.has(e.pointerId)) {
+                    if (!suppressSingleUntilRelease && activeTouches.size === 1) finishEditorStroke(e);
+                    activeTouches.delete(e.pointerId);
+                    if (activeTouches.size < 2) pinchGesture = null;
+                    if (activeTouches.size === 0) suppressSingleUntilRelease = false;
+                } else finishEditorStroke(e);
                 return;
             }
-
-            // 如果刚刚是拖动批量标记，不要当作一次“点击”
-            if (touchDrag.dragging && e.pointerId === touchDrag.id) {
-                pointerDownTarget = null;
+            if (activeTouches.has(e.pointerId)) {
+                const wasSingle = activeTouches.size === 1 && !suppressSingleUntilRelease;
+                if (wasSingle && gameState.isPlaying && touchDrag.id === e.pointerId && touchDrag.startCell !== null) {
+                    if (touchDrag.dragging) {
+                        forEachCellAlongSegment(touchDrag.lastX, touchDrag.lastY, e.clientX, e.clientY, applyDragMarkAtPoint);
+                    } else {
+                        recordTouchMovement(e.clientX, e.clientY);
+                        if (!touchMovementIsDrag(e.clientX, e.clientY)) {
+                            handleCellInteraction(touchDrag.startCell, 0, 'touch');
+                        } else {
+                            beginTouchMarkDrag();
+                        }
+                    }
+                }
+                activeTouches.delete(e.pointerId);
+                if (activeTouches.size < 2) pinchGesture = null;
+                if (activeTouches.size === 0) suppressSingleUntilRelease = false;
+                resetTouchDrag();
                 return;
             }
-
-            if (!gameState.isPlaying || !pointerDownTarget) {
-                pointerDownTarget = null;
+            if (mouseDrag.active && e.pointerId === mouseDrag.pointerId) resetMouseDrag();
+        }
+        function handleGlobalPointerCancel(e) {
+            if (editorMode) {
+                finishEditorStroke(e);
+                activeTouches.delete(e.pointerId);
+                if (activeTouches.size < 2) pinchGesture = null;
+                if (activeTouches.size === 0) suppressSingleUntilRelease = false;
                 return;
             }
-
-            const target = document.elementFromPoint(e.clientX, e.clientY);
-
-            if (target === pointerDownTarget) {
-                const idx = parseInt(pointerDownTarget.dataset.index);
-                handleCellInteraction(idx, pointerDownButton, pointerType);
+            if (activeTouches.has(e.pointerId)) {
+                activeTouches.delete(e.pointerId);
+                if (activeTouches.size < 2) pinchGesture = null;
+                if (activeTouches.size === 0) suppressSingleUntilRelease = false;
+                resetTouchDrag();
             }
-
-            pointerDownTarget = null;
+            if (mouseDrag.active && e.pointerId === mouseDrag.pointerId) resetMouseDrag();
         }
 
         function neighborhoodHasSatisfiedOrOverloaded(idx) {
@@ -1319,6 +2999,7 @@
         }
 
         function handleCellInteraction(idx, button, type) {
+            if (idx === null || isRevealedGameCell(idx)) return;
             const state = gameState.playerGrid[idx];
             let newState = state;
 
@@ -1377,13 +3058,11 @@
                 gameState.isPlaying = false;
 
                 const finalSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
-                const isNewRecord = trySaveRecord(finalSeconds);
+                const isNewRecord = gameState.isCustom ? false : trySaveRecord(finalSeconds);
 
-                // 胜利特效
-                const cells = document.querySelectorAll('.cell.filled');
-                cells.forEach((c, i) => {
-                    setTimeout(() => c.classList.add('win-anim'), i * 5);
-                });
+                // Original staggered emerald pulse and an independent,
+                // simultaneous smooth zoom/pan back to the fitted 100% view.
+                beginVictoryAnimations();
 
                 if (isNewRecord) {
                     statusTextEl.innerText = t('status_new_record');
@@ -1397,7 +3076,18 @@
 
         // --- 辅助 UI ---
         function toggleSettings() {
-            settingsModal.classList.toggle('hidden');
+            if (isModalOpen(appDialogEl)) return;
+            if (editorMode) {
+                // Finish the current stroke, persist it, and return to the game's settings.
+                // No intermediate confirmation: editor changes are saved automatically.
+                closeCustomEditor();
+                tutorialModal.classList.add('hidden');
+                settingsModal.classList.remove('hidden');
+            } else {
+                tutorialModal.classList.add('hidden');
+                settingsModal.classList.toggle('hidden');
+            }
+            updateEditorChrome();
         }
 
         // URL 参数管理 ---
@@ -1450,30 +3140,34 @@
         }
 
         function applySettings(updateHistory = true) {
-            if (updateHistory) {
-                updateUrlFromInputs();
+            // Check before mutating any existing game state or closing Settings.
+            if (useCustomPattern && !customSourceValid()) {
+                const count = getCustomPatternBounds().eligible;
+                showAppDialog(t('custom_invalid_title'),
+                    t('custom_invalid_message').replace('{count}', String(count)));
+                return false;
             }
-
-            // 从 DOM 读取值应用到全局配置
+            if (updateHistory) updateUrlFromInputs();
+            const previous = {...CONFIG};
             CONFIG.width = parseInt(document.getElementById('input-width').value);
             CONFIG.height = parseInt(document.getElementById('input-height').value);
             CONFIG.fillDensity = parseInt(document.getElementById('input-density').value) / 100;
-
-            // 如果模态框是打开的，关掉它
-            if (!settingsModal.classList.contains('hidden')) {
-                toggleSettings();
-            }
-
-            restartGame();
+            const ok = restartGame();
+            if (!ok) { Object.assign(CONFIG, previous); return false; }
+            if (!settingsModal.classList.contains('hidden')) toggleSettings();
+            return true;
         }
 
         // --- 辅助 UI ---
         function toggleTutorial() {
+            if (isModalOpen(appDialogEl)) return;
             tutorialModal.classList.toggle('hidden');
+            updateEditorChrome();
 
-            // 互斥逻辑：如果打开教程时设置开着，就关掉设置
+            // Exclusive panels: do not use toggleSettings(), which also closes
+            // the tutorial when another dialog is opening.
             if (!tutorialModal.classList.contains('hidden') && !settingsModal.classList.contains('hidden')) {
-                toggleSettings();
+                settingsModal.classList.add('hidden');
             }
         }
 
@@ -1486,6 +3180,7 @@
         };
 
         window.onload = function () {
+            setThemeHue(themeHue);
             // 1. 尝试从 URL 读取参数
             const hasParams = loadInputsFromUrl();
 
@@ -1495,138 +3190,54 @@
                 updateUrlFromInputs(true);
             }
 
-            // 3. 应用设置并开始游戏
-            // 传入 false，因为 URL 刚才已经被我们处理过了（要么是读取的，要么是补全的），不需要再 pushState
-            applySettings(false);
-            
+            // Load existing 64×64 pattern BEFORE deciding which mode to generate.
+            loadEditorDocument();
+            readPatternLibrary();
+            try { useCustomPattern = localStorage.getItem(CUSTOM_MODE_STORAGE_KEY) === 'true'; }
+            catch (_) { useCustomPattern = false; }
+            // An invalid saved custom pattern must not leave the initial screen
+            // without a game. Start a normal puzzle while retaining the toggle
+            // preference for the next explicit Generate action.
+            if (useCustomPattern && !customSourceValid()) {
+                useCustomPattern = false;
+                applySettings(false);
+                useCustomPattern = true;
+            } else applySettings(false);
             // 4. 初始化语言
             updateLanguageUI();
 
-            // 事件监听
-            document.addEventListener('pointermove', handleGlobalPointerMove);
+            // 全部触摸手势由 Pointer Events 处理。页面本身无需缩放。
+            boardCanvas.addEventListener('pointerdown', e => {
+                if (e.pointerType === 'mouse') {
+                    if (editorMode) {
+                        if (e.button === 0 || e.button === 2) {
+                            e.preventDefault();
+                            startEditorStroke(e);
+                        }
+                    } else handlePointerDown(e);
+                }
+                else handleViewportTouchDown(e);
+            }, { passive: false });
+            boardCanvas.addEventListener('wheel', handleBoardWheel, { passive: false });
+            boardCanvas.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
             document.addEventListener('pointerup', handleGlobalPointerUp);
-            document.addEventListener('pointercancel', (e) => {
-                if (e.pointerId === mouseDrag.pointerId) resetMouseDrag();
-                pointerDownTarget = null;
-            });
+            document.addEventListener('pointercancel', handleGlobalPointerCancel);
             document.addEventListener('keydown', handleKeyboardShortcut);
 
-            function endTouchPointer(e) {
-                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
-                    activeTouchIds.delete(e.pointerId);
-                }
-                // 如果结束的是当前拖动手指，清理状态
-                if (e.pointerId === touchDrag.id) {
-                    resetTouchDrag();
-                }
-            }
-
-            ro = new ResizeObserver(() => layoutGridToFit());
-            ro.observe(document.getElementById('grid-viewport'));
-
-            if (window.visualViewport) {
-                visualViewport.addEventListener('resize', layoutGridToFit);
-                visualViewport.addEventListener('scroll', layoutGridToFit);
-            }
-
-            // 桌面：禁用 dblclick 放大（不影响滚轮缩放等）
-            document.addEventListener('dblclick', (e) => {
-                e.preventDefault();
-            }, { passive: false });
-
-            // 移动端：只禁用“双点放大”，同时保证双点仍然等价于“点两次”
-            let lastTapTime = 0;
-            let lastTapX = 0;
-            let lastTapY = 0;
-
-            // 移动端：用 touchmove 实现“单指滑动标记空白”，并给 pinch 留窗口期
-            function getTouchById(touchList, id) {
-                for (const t of touchList) if (t.identifier === id) return t;
-                return null;
-            }
-
-            gridEl.addEventListener('touchstart', (e) => {
-                if (!gameState.isPlaying) return;
-
-                // 不是单指：直接放行（pinch/多指）
-                if (e.touches.length !== 1) {
-                    resetTouchDrag();
-                    return;
-                }
-
-                const t = e.touches[0];
-                touchDrag.id = t.identifier;
-                touchDrag.startX = t.clientX;
-                touchDrag.startY = t.clientY;
-                touchDrag.startTime = Date.now();
-                touchDrag.dragging = false;
-                touchDrag.armed = false;
-                touchDrag.visited.clear();
-
-                // 从 3 开始拖 => 擦除到 0；否则拖 => 标记到 3
-                const el = document.elementFromPoint(t.clientX, t.clientY);
-                const cellEl = el && el.closest ? el.closest('.cell') : null;
-                if (cellEl) {
-                    const idx = parseInt(cellEl.dataset.index, 10);
-                    touchDrag.action = (gameState.playerGrid[idx] === 3) ? 0 : 3;
-                } else {
-                    touchDrag.action = 3;
-                }
-
-                if (touchDrag.armTimer) clearTimeout(touchDrag.armTimer);
-                touchDrag.armTimer = setTimeout(() => {
-                    // 窗口期结束时仍然是单指，才允许进入拖动
-                    if (touchDrag.id === t.identifier) touchDrag.armed = true;
-                }, DRAG_ARM_DELAY);
-
-            }, { passive: true });
-
-            gridEl.addEventListener('touchmove', (e) => {
-                if (!gameState.isPlaying) return;
-                if (touchDrag.id == null) return;
-
-                // 多指：放行 pinch，并取消本次拖动候选
-                if (e.touches.length !== 1) {
-                    resetTouchDrag();
-                    pointerDownTarget = null; // 避免 pinch 结束触发点按循环
-                    return;
-                }
-
-                const t = getTouchById(e.touches, touchDrag.id) || e.touches[0];
-
-                const dx = t.clientX - touchDrag.startX;
-                const dy = t.clientY - touchDrag.startY;
-                const dist2 = dx * dx + dy * dy;
-
-                // 没进入拖动前：必须 armed + 超过阈值
-                if (!touchDrag.dragging) {
-                    if (!touchDrag.armed) return;
-                    if (dist2 < DRAG_MOVE_THRESHOLD * DRAG_MOVE_THRESHOLD) return;
-
-                    touchDrag.dragging = true;
-
-                    // 一旦开始拖动：取消 pointer 的“点按”判定
-                    pointerDownTarget = null;
-
-                    // 起点也算（先标一下）
-                    applyDragMarkAtPoint(touchDrag.startX, touchDrag.startY);
-                }
-
-                // 拖动中：阻止页面滚动/橡皮筋（但仅单指拖动时）
-                e.preventDefault();
-
-                applyDragMarkAtPoint(t.clientX, t.clientY);
-
-            }, { passive: false });
-
-            gridEl.addEventListener('touchend', (e) => {
-                // 所有手指抬起：结束
-                if (e.touches.length === 0) resetTouchDrag();
-            }, { passive: true });
-
-            gridEl.addEventListener('touchcancel', () => {
-                resetTouchDrag();
-            }, { passive: true });
+            ro = new ResizeObserver(layoutGridToFit);
+            ro.observe(gridViewportEl);
+            ro.observe(boardCanvas);
+            // Safari's visualViewport may fire resize/scroll during page scale changes;
+            // observing the actual grid container already handles device rotation and
+            // visible-height changes, without feeding an iOS shrink-to-fit loop.
+            // 禁用棋盘内浏览器的原生手势（兼容部分 Safari 版本）。
+            boardCanvas.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+            boardCanvas.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+            boardCanvas.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+            document.addEventListener('visibilitychange', () => {
+                if (editorMode && document.hidden) finishEditorStroke();
+            });
 
         };
     </script>

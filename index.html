@@ -622,7 +622,7 @@
                 editor_cancel: "取消",
                 editor_ok: "知道了",
                 custom_invalid_title: "无法生成自定义游戏",
-                custom_invalid_message: "当前只有 {count} 个有效棋盘格的点亮概率大于 0，至少需要 4 个。请先在编辑器中添加格子或提高概率。",
+                custom_invalid_message: "当前只有 {count} 个未标记且点亮概率大于 0 的棋盘格，至少需要 4 个。",
                 modal_tutorial_title: "玩法说明",
                 tut_goal_title: "核心目标",
                 tut_goal_desc: "根据格子上的数字提示，推理并还原隐藏的像素图案。",
@@ -717,7 +717,7 @@
                 editor_cancel: "Cancel",
                 editor_ok: "OK",
                 custom_invalid_title: "Cannot Generate Custom Game",
-                custom_invalid_message: "Only {count} cells have a nonzero fill chance. At least 4 are needed.",
+                custom_invalid_message: "At least 4 unmarked cells with a nonzero fill chance are needed ({count} found).",
                 modal_tutorial_title: "How to Play",
                 tut_goal_title: "Goal",
                 tut_goal_desc: "Deduce and reveal the hidden pixel art based on numerical hints.",
@@ -962,7 +962,7 @@
             isCustom: false,
             playableMask: null,
             revealedMask: null, // 1 = starting truth is visible and permanently locked
-            hiddenNumberMask: null // 1 = this clue number is not rendered (calculation unchanged)
+            hiddenNumberMask: null // 1 = this clue is hidden and excluded from win validation
         };
 
         // Standalone editor document; intentionally not coupled to normal game settings.
@@ -1481,7 +1481,7 @@
             for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
                 const idx = y * 64 + x;
                 if (editorDocument.cellMode[idx] < 0) continue;
-                if (editorDocument.probability[idx] > 0) eligible++;
+                if (editorDocument.cellMode[idx] === 0 && editorDocument.probability[idx] > 0) eligible++;
                 minX = Math.min(minX, x); minY = Math.min(minY, y);
                 maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
             }
@@ -1873,7 +1873,7 @@
                     const state = gameState.playerGrid[i];
                     const goal = gameState.targetValues[i];
                     const val = currentValues[i] || 0;
-                    // Hidden clues still participate in the full solving and win rules.
+                    // Hidden clues are not drawn and are excluded from win validation.
                     const hideNumber = !!(gameState.hiddenNumberMask && gameState.hiddenNumberMask[i]);
                     const str = hideNumber ? '' : String(gameState.showRemaining ? goal - val : goal);
                     const scale = str.length >= 4 ? 0.36 : str.length === 3 ? 0.49 : str.length === 2 ? 0.65 : 0.74;
@@ -3042,9 +3042,11 @@
             // 条件1: 剩余数量为0
             if (gameState.totalToFill !== gameState.currentFilled) return;
 
-            // 条件2: 场上所有数字都达标
+            // 条件2: 所有可见的数字都达标；隐藏数字不参与胜负判断。
             let allSatisfied = true;
             for (let i = 0; i < gameState.playerGrid.length; i++) {
+                if (gameState.hiddenNumberMask && gameState.hiddenNumberMask[i]) continue;
+                if (gameState.playableMask && !gameState.playableMask[i]) continue;
                 const current = calculateConnection(i, gameState.playerGrid);
                 const target = gameState.targetValues[i];
                 if (current !== target) {

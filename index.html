@@ -2014,8 +2014,12 @@
             if (!editorMode || isModalOpen(appDialogEl)) return;
             finishEditorStroke();
             saveEditorDocument();
-            renderPatternLibrary();
+            // The dialog must be laid out *before* drawing thumbnails. If we
+            // draw while display:none, canvas.clientWidth is zero; a fallback
+            // bitmap is then stretched when the dialog becomes visible.
             patternLibraryEl.classList.remove('hidden');
+            renderPatternLibrary();
+            scheduleLibraryThumbnailRefresh();
         }
         function closePatternLibrary() {
             patternLibraryEl.classList.add('hidden');
@@ -2121,13 +2125,17 @@
             if (item.name !== newName) { item.name = newName; savePatternLibrary(); }
         }
         function renderLibraryThumbnail(canvas, item) {
-            const cw = Math.max(20, Math.round(canvas.clientWidth || 156));
-            const ch = Math.max(20, Math.round(canvas.clientHeight || 108));
+            // Match the drawing buffer to the *actual visible* CSS dimensions.
+            // Never paint a guessed size: the browser would stretch that bitmap
+            // when a hidden library is opened or when card widths change.
+            const rect = canvas.getBoundingClientRect();
+            const cw = rect.width, ch = rect.height;
+            if (cw <= 0 || ch <= 0) return;
             const dpr = Math.min(window.devicePixelRatio || 1, 3);
-            canvas.width = Math.round(cw * dpr);
-            canvas.height = Math.round(ch * dpr);
+            canvas.width = Math.max(1, Math.round(cw * dpr));
+            canvas.height = Math.max(1, Math.round(ch * dpr));
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.setTransform(canvas.width / cw, 0, 0, canvas.height / ch, 0, 0);
             ctx.fillStyle = '#e5e5e5';
             ctx.fillRect(0,0,cw,ch);
             let minR=64,maxR=-1,minC=64,maxC=-1;
@@ -2150,6 +2158,33 @@
                 if (cell >= 4) drawEditorMarkSymbols(ctx, x, y, cell, item.cellMode[i]);
             }
         }
+        // Keep thumbnail backing buffers in step with responsive card widths
+        // without rebuilding cards (which would interrupt name editing).
+        let libraryThumbnailFrame = 0;
+        function scheduleLibraryThumbnailRefresh() {
+            if (libraryThumbnailFrame || !libraryIsOpen()) return;
+            libraryThumbnailFrame = requestAnimationFrame(() => {
+                libraryThumbnailFrame = 0;
+                if (!libraryIsOpen()) return;
+                for (const card of patternLibraryGrid.querySelectorAll('.pattern-card')) {
+                    const item = patternLibrary.entries.find(v => v.id === Number(card.dataset.patternId));
+                    const canvas = card.querySelector('canvas');
+                    if (item && canvas) {
+                        const r = canvas.getBoundingClientRect();
+                        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+                        if (r.width > 0 && r.height > 0 &&
+                            (Math.abs(canvas.width - Math.round(r.width * dpr)) > 1 ||
+                             Math.abs(canvas.height - Math.round(r.height * dpr)) > 1)) {
+                            renderLibraryThumbnail(canvas, item);
+                        }
+                    }
+                }
+            });
+        }
+        const libraryThumbnailResizeObserver = new ResizeObserver(scheduleLibraryThumbnailRefresh);
+        libraryThumbnailResizeObserver.observe(patternLibraryGrid);
+        window.addEventListener('resize', scheduleLibraryThumbnailRefresh);
+
         function renderPatternLibrary(focusNameId = null) {
             if (selectedLibraryId !== null && !selectedLibraryPattern()) selectedLibraryId = null;
             const ids = new Set(patternLibrary.entries.map(v => v.id));
